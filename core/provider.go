@@ -35,6 +35,9 @@ func MinReasoningLevel(providerName, model string) string {
 	if providerName == "gemini" && GetThinkingConfig(providerName, model) == "level" {
 		return "low"
 	}
+	if providerName == "nvidia" && strings.Contains(model, "gpt-oss") {
+		return "low"
+	}
 	return "none"
 }
 
