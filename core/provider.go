@@ -56,6 +56,8 @@ func MaxReasoningLevel(providerName, model string) string {
 		return "high"
 	case "openrouter":
 		return "xhigh"
+	case "nvidia":
+		return "high"
 	case "claude":
 		if strings.Contains(model, "-20") {
 			return "high"
@@ -124,14 +126,18 @@ func SupportReasoningEffort(providerName, model string) bool {
 		return true
 	case "grok", "grok-oauth":
 		return !strings.Contains(model, "non-reasoning")
+	case "nvidia":
+		return strings.Contains(model, "gpt-oss")
 	}
 	return false
 }
 
 func SupportsReasoningSwitch(providerName, model string) bool {
 	switch providerName {
-	case "nvidia", "deepseek", "cloudflare", "compat":
+	case "deepseek", "cloudflare", "compat":
 		return false
+	case "nvidia":
+		return SupportReasoningEffort(providerName, model)
 	case "codex":
 		return true
 	case "openai", "copilot":

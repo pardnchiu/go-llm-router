@@ -30,15 +30,23 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		merged = append([]provider.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
-	result, code, err := go_pkg_http.POST[provider.Output](ctx, a.httpClient, chatAPI, map[string]string{
-		"Authorization": "Bearer " + a.apiKey,
-		"Content-Type":  "application/json",
-	}, map[string]any{
+	body := map[string]any{
 		"model":       a.model,
 		"messages":    merged,
 		"temperature": 0.2,
 		"tools":       tools,
-	}, "json")
+	}
+	if provider.SupportReasoningEffort("nvidia", a.model) {
+		effort := provider.ClampReasoningLevel(reasoning, provider.MaxReasoningLevel("nvidia", a.model))
+		if !provider.ReasoningDisabled(effort) {
+			body["reasoning_effort"] = effort
+		}
+	}
+
+	result, code, err := go_pkg_http.POST[provider.Output](ctx, a.httpClient, chatAPI, map[string]string{
+		"Authorization": "Bearer " + a.apiKey,
+		"Content-Type":  "application/json",
+	}, body, "json")
 	if err != nil {
 		return nil, code, err
 	}
