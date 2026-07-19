@@ -16,7 +16,7 @@ import (
 	"github.com/pardnchiu/go-llm-router/core"
 )
 
-func LoginWithCallback(ctx context.Context, onURL func(string)) (*provider.CodexToken, error) {
+func LoginWithCallback(ctx context.Context, onURL func(string)) (*core.CodexToken, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -56,7 +56,7 @@ func LoginWithCallback(ctx context.Context, onURL func(string)) (*provider.Codex
 	}
 }
 
-func exchangeCode(ctx context.Context, code, verifier, redirect string) (*provider.CodexToken, error) {
+func exchangeCode(ctx context.Context, code, verifier, redirect string) (*core.CodexToken, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -91,7 +91,7 @@ func exchangeCode(ctx context.Context, code, verifier, redirect string) (*provid
 		expiry = time.Now().Add(3600 * time.Second)
 	}
 
-	token := &provider.CodexToken{
+	token := &core.CodexToken{
 		AccessToken:  raw.AccessToken,
 		RefreshToken: raw.RefreshToken,
 		IDToken:      raw.IDToken,

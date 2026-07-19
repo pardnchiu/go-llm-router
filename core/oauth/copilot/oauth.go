@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pardnchiu/go-llm-router/core"
 	"github.com/pardnchiu/go-pkg/filesystem/keychain"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
-
-	"github.com/pardnchiu/go-llm-router/core"
 )
 
 const (
@@ -40,7 +39,7 @@ type GopilotAccessToken struct {
 	Error       string `json:"error"`
 }
 
-func Load() (*provider.CopilotToken, error) {
+func Load() (*core.CopilotToken, error) {
 	raw := keychain.Get(tokenKey)
 	// ! agenvoy.copilot.token will deprecated in v1.*.*
 	if raw == "" {
@@ -49,7 +48,7 @@ func Load() (*provider.CopilotToken, error) {
 	if raw == "" {
 		return nil, nil
 	}
-	var t provider.CopilotToken
+	var t core.CopilotToken
 	if err := json.Unmarshal([]byte(raw), &t); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
@@ -70,7 +69,7 @@ func ClearToken() error {
 	return err
 }
 
-func LoginWithCallback(ctx context.Context, onCode func(*DeviceCode)) (*provider.CopilotToken, error) {
+func LoginWithCallback(ctx context.Context, onCode func(*DeviceCode)) (*core.CopilotToken, error) {
 	code, _, err := go_pkg_http.POST[DeviceCode](ctx, nil, deviceCodeAPI,
 		map[string]string{},
 		map[string]any{
@@ -87,7 +86,7 @@ func LoginWithCallback(ctx context.Context, onCode func(*DeviceCode)) (*provider
 	interval := time.Duration(code.Interval) * time.Second
 	deadline := time.Now().Add(time.Duration(code.ExpiresIn) * time.Second)
 
-	var token *provider.CopilotToken
+	var token *core.CopilotToken
 	client := &http.Client{Timeout: 30 * time.Second}
 	for time.Now().Before(deadline) {
 		select {
@@ -109,7 +108,7 @@ func LoginWithCallback(ctx context.Context, onCode func(*DeviceCode)) (*provider
 	return nil, fmt.Errorf("device code expired")
 }
 
-func getAccessToken(ctx context.Context, client *http.Client, deviceCode string) (*provider.CopilotToken, error) {
+func getAccessToken(ctx context.Context, client *http.Client, deviceCode string) (*core.CopilotToken, error) {
 	accessToken, _, err := go_pkg_http.POST[GopilotAccessToken](ctx, client, oauthAccessTokenAPI,
 		map[string]string{},
 		map[string]any{
@@ -123,7 +122,7 @@ func getAccessToken(ctx context.Context, client *http.Client, deviceCode string)
 
 	switch accessToken.Error {
 	case "":
-		token := &provider.CopilotToken{
+		token := &core.CopilotToken{
 			AccessToken: accessToken.AccessToken,
 			TokenType:   accessToken.TokenType,
 			Scope:       accessToken.Scope,

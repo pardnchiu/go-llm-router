@@ -16,7 +16,7 @@ import (
 	"github.com/pardnchiu/go-llm-router/core"
 )
 
-func LoginWithCallback(ctx context.Context, onURL func(string)) (*provider.GrokToken, error) {
+func LoginWithCallback(ctx context.Context, onURL func(string)) (*core.GrokToken, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return nil, fmt.Errorf("failed to generate PKCE verifier: %w", err)
@@ -61,7 +61,7 @@ func LoginWithCallback(ctx context.Context, onURL func(string)) (*provider.GrokT
 	}
 }
 
-func exchangeCode(ctx context.Context, code, verifier, challenge string) (*provider.GrokToken, error) {
+func exchangeCode(ctx context.Context, code, verifier, challenge string) (*core.GrokToken, error) {
 	form := url.Values{
 		"grant_type":            {"authorization_code"},
 		"code":                  {code},
@@ -98,7 +98,7 @@ func exchangeCode(ctx context.Context, code, verifier, challenge string) (*provi
 		expiry = time.Now().Add(3600 * time.Second)
 	}
 
-	token := &provider.GrokToken{
+	token := &core.GrokToken{
 		AccessToken:  raw.AccessToken,
 		RefreshToken: raw.RefreshToken,
 		ExpiresAt:    expiry,

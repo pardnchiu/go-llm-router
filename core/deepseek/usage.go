@@ -7,9 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	go_pkg_http "github.com/pardnchiu/go-pkg/http"
-
 	"github.com/pardnchiu/go-llm-router/core"
+	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const balanceAPI = "https://api.deepseek.com/user/balance"
@@ -22,7 +21,7 @@ type balanceResponse struct {
 	} `json:"balance_infos"`
 }
 
-func Usage(ctx context.Context, config provider.Config) (float64, error) {
+func Usage(ctx context.Context, config core.Config) (float64, error) {
 	if config.APIKey == "" {
 		return 0, fmt.Errorf("Usage: APIKey is required")
 	}

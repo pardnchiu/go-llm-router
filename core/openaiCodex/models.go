@@ -16,7 +16,7 @@ const (
 	modelsAPI = "https://agenvoy-codex.pardn.workers.dev/models"
 )
 
-func Models(ctx context.Context, config provider.Config) ([]string, error) {
+func Models(ctx context.Context, config core.Config) ([]string, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
@@ -29,7 +29,7 @@ func Models(ctx context.Context, config provider.Config) ([]string, error) {
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[provider.Models](ctx, client, modelsAPI, headers)
+	data, status, err := go_pkg_http.GET[core.Models](ctx, client, modelsAPI, headers)
 	if err != nil {
 		return nil, fmt.Errorf("go_pkg_http.GET: %w", err)
 	}

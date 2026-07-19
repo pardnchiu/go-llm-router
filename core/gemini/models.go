@@ -7,22 +7,21 @@ import (
 	"strings"
 	"time"
 
-	go_pkg_http "github.com/pardnchiu/go-pkg/http"
-
 	"github.com/pardnchiu/go-llm-router/core"
+	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const (
 	modelsAPI = "https://generativelanguage.googleapis.com/v1beta/models"
 )
 
-func Models(ctx context.Context, config provider.Config) ([]string, error) {
+func Models(ctx context.Context, config core.Config) ([]string, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[provider.GeminiModels](ctx, client, modelsAPI+"?key="+config.APIKey, nil)
+	data, status, err := go_pkg_http.GET[core.GeminiModels](ctx, client, modelsAPI+"?key="+config.APIKey, nil)
 	if err != nil {
 		return nil, fmt.Errorf("go_pkg_http.GET: %w", err)
 	}

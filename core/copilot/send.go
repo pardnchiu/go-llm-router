@@ -14,7 +14,7 @@ const (
 	responsesAPI = "https://api.githubcopilot.com/responses"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []provider.Tool, reasoning string) (*provider.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
@@ -25,9 +25,9 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		"Editor-Version": "vscode/1.95.0",
 	}
 
-	if provider.ResponsesAPI("copilot", a.model) {
+	if core.ResponsesAPI("copilot", a.model) {
 		var instructions string
-		nonSystem := make([]provider.Message, 0, len(messages))
+		nonSystem := make([]core.Message, 0, len(messages))
 		for _, m := range messages {
 			if m.Role == "system" {
 				if s, ok := m.Content.(string); ok {
@@ -41,7 +41,7 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 			nonSystem = append(nonSystem, m)
 		}
 
-		effort := provider.ClampReasoningLevel(reasoning, provider.MaxReasoningLevel("copilot", a.model))
+		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("copilot", a.model))
 		body := map[string]any{
 			"model":        a.model,
 			"input":        copilotResponse.ConvertInput(nonSystem),
@@ -49,7 +49,7 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 			"instructions": instructions,
 			"store":        false,
 		}
-		if !provider.ReasoningDisabled(effort) {
+		if !core.ReasoningDisabled(effort) {
 			body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
 		}
 
@@ -70,17 +70,17 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		"messages": messages,
 		"tools":    tools,
 	}
-	if provider.SupportTemperature("copilot", a.model) {
+	if core.SupportTemperature("copilot", a.model) {
 		body["temperature"] = 0.2
 	}
-	if provider.SupportReasoningEffort("copilot", a.model) {
-		effort := provider.ClampReasoningLevel(reasoning, provider.MaxReasoningLevel("copilot", a.model))
-		if !provider.ReasoningDisabled(effort) {
+	if core.SupportReasoningEffort("copilot", a.model) {
+		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("copilot", a.model))
+		if !core.ReasoningDisabled(effort) {
 			body["reasoning_effort"] = effort
 		}
 	}
 
-	result, code, err := go_pkg_http.POST[provider.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
+	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
 	if err != nil {
 		return nil, code, err
 	}

@@ -16,14 +16,14 @@ import (
 
 const responsesAPI = "https://api.x.ai/v1/responses"
 
-func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []provider.Tool, reasoning string) (*provider.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
 	}
 
 	var instructions string
-	var nonSystem []provider.Message
+	var nonSystem []core.Message
 	for _, m := range messages {
 		if m.Role == "system" {
 			if s, ok := m.Content.(string); ok {
@@ -45,9 +45,9 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		"store":        false,
 		"stream":       true,
 	}
-	if provider.SupportReasoningEffort("grok-oauth", a.model) {
-		effort := provider.ClampReasoningLevel(reasoning, provider.MaxReasoningLevel("grok-oauth", a.model))
-		if !provider.ReasoningDisabled(effort) {
+	if core.SupportReasoningEffort("grok-oauth", a.model) {
+		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("grok-oauth", a.model))
+		if !core.ReasoningDisabled(effort) {
 			body["reasoning"] = map[string]any{"effort": effort}
 		}
 	}
@@ -96,12 +96,12 @@ type pendingCall struct {
 	args   string
 }
 
-func parseSSEStream(resp *http.Response) (*provider.Output, error) {
+func parseSSEStream(resp *http.Response) (*core.Output, error) {
 	var (
 		textBuf   strings.Builder
 		reasonBuf strings.Builder
-		toolCalls []provider.ToolCall
-		usage     provider.Usage
+		toolCalls []core.ToolCall
+		usage     core.Usage
 		argsBuf   = map[string]*strings.Builder{}
 		pending   []pendingCall
 	)
@@ -194,7 +194,7 @@ func parseSSEStream(resp *http.Response) (*provider.Output, error) {
 
 		case "response.completed":
 			if ev.Response != nil {
-				usage = provider.Usage{
+				usage = core.Usage{
 					Input:     ev.Response.Usage.InputTokens - ev.Response.Usage.InputTokensDetails.CachedTokens,
 					Output:    ev.Response.Usage.OutputTokens,
 					CacheRead: ev.Response.Usage.InputTokensDetails.CachedTokens,
@@ -225,7 +225,7 @@ func parseSSEStream(resp *http.Response) (*provider.Output, error) {
 				args = b.String()
 			}
 		}
-		toolCalls = append(toolCalls, provider.ToolCall{
+		toolCalls = append(toolCalls, core.ToolCall{
 			ID:   p.callID,
 			Type: "function",
 			Function: struct {
@@ -238,7 +238,7 @@ func parseSSEStream(resp *http.Response) (*provider.Output, error) {
 		})
 	}
 
-	msg := provider.Message{Role: "assistant"}
+	msg := core.Message{Role: "assistant"}
 	if str := textBuf.String(); str != "" {
 		msg.Content = str
 	}
@@ -250,8 +250,8 @@ func parseSSEStream(resp *http.Response) (*provider.Output, error) {
 		finishReason = "tool_calls"
 	}
 
-	return &provider.Output{
-		Choices: []provider.OutputChoices{
+	return &core.Output{
+		Choices: []core.OutputChoices{
 			{Message: msg, FinishReason: finishReason},
 		},
 		Usage: usage,

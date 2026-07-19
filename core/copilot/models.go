@@ -7,22 +7,21 @@ import (
 	"strings"
 	"time"
 
-	go_pkg_http "github.com/pardnchiu/go-pkg/http"
-
 	"github.com/pardnchiu/go-llm-router/core"
+	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const (
 	modelsAPI = "https://api.githubcopilot.com/models"
 )
 
-func Models(ctx context.Context, config provider.Config) ([]string, error) {
+func Models(ctx context.Context, config core.Config) ([]string, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[provider.CopilotModels](ctx, client, modelsAPI, map[string]string{
+	data, status, err := go_pkg_http.GET[core.CopilotModels](ctx, client, modelsAPI, map[string]string{
 		"Authorization":  "Bearer " + config.APIKey,
 		"Editor-Version": "vscode/1.95.0",
 	})

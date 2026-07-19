@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	go_pkg_http "github.com/pardnchiu/go-pkg/http"
-
 	"github.com/pardnchiu/go-llm-router/core"
+	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const userAPI = "https://api.github.com/copilot_internal/user"
@@ -26,8 +25,8 @@ type userResponse struct {
 	} `json:"quota_snapshots"`
 }
 
-func Usage(ctx context.Context, config provider.Config) (float64, error) {
-	token, ok := config.Token.(*provider.CopilotToken)
+func Usage(ctx context.Context, config core.Config) (float64, error) {
+	token, ok := config.Token.(*core.CopilotToken)
 	if !ok || token == nil {
 		return 0, fmt.Errorf("Usage: Token is required")
 	}

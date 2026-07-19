@@ -20,7 +20,7 @@ const (
 	defaultBaseURL = "http://localhost:11434/v1"
 )
 
-func New(config provider.Config) (*Agent, error) {
+func New(config core.Config) (*Agent, error) {
 	if config.Model == "" {
 		return nil, fmt.Errorf("compat.New: Model is required")
 	}

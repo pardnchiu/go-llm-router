@@ -8,7 +8,7 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []provider.Tool, reasoning string) (*provider.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
 	chatAPI := a.baseURL + "/chat/completions"
 
 	headers := map[string]string{
@@ -18,7 +18,7 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		headers["Authorization"] = "Bearer " + a.apiKey
 	}
 
-	result, code, err := go_pkg_http.POST[provider.Output](ctx, a.httpClient, chatAPI, headers, map[string]any{
+	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, headers, map[string]any{
 		"model":       a.model,
 		"messages":    messages,
 		"temperature": 0.2,

@@ -12,7 +12,7 @@ import (
 	"github.com/pardnchiu/go-llm-router/core"
 )
 
-func refresh(ctx context.Context, token *provider.CodexToken) (*provider.CodexToken, error) {
+func refresh(ctx context.Context, token *core.CodexToken) (*core.CodexToken, error) {
 	if token == nil || token.RefreshToken == "" {
 		return nil, fmt.Errorf("no refresh token available")
 	}
@@ -59,7 +59,7 @@ func refresh(ctx context.Context, token *provider.CodexToken) (*provider.CodexTo
 		accountID = token.AccountID
 	}
 
-	next := &provider.CodexToken{
+	next := &core.CodexToken{
 		AccessToken:  raw.AccessToken,
 		RefreshToken: refreshToken,
 		IDToken:      raw.IDToken,

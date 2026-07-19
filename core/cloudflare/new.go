@@ -19,7 +19,7 @@ const (
 	Prefix = "cloudflare@"
 )
 
-func New(config provider.Config) (*Agent, error) {
+func New(config core.Config) (*Agent, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("cloudflare.New: APIKey is required")
 	}
@@ -33,7 +33,7 @@ func New(config provider.Config) (*Agent, error) {
 	}
 
 	return &Agent{
-		httpClient: provider.NewHTTPClient(),
+		httpClient: core.NewHTTPClient(),
 		model:      config.Model,
 		apiKey:     config.APIKey,
 		accountID:  config.AccountID,

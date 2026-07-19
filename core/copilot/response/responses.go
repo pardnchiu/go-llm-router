@@ -44,7 +44,7 @@ type ToolCall struct {
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
-func ConvertInput(messages []provider.Message) []map[string]any {
+func ConvertInput(messages []core.Message) []map[string]any {
 	result := make([]map[string]any, 0, len(messages))
 	for _, m := range messages {
 		// * tool result -> function_call_output
@@ -92,7 +92,7 @@ func convertContent(role string, content any) any {
 		return []map[string]any{
 			{"type": textType, "text": v},
 		}
-	case []provider.ContentPart:
+	case []core.ContentPart:
 		parts := make([]map[string]any, 0, len(v))
 		for _, p := range v {
 			switch p.Type {
@@ -123,7 +123,7 @@ func convertContent(role string, content any) any {
 	}
 }
 
-func ConvertTools(tools []provider.Tool) []ToolCall {
+func ConvertTools(tools []core.Tool) []ToolCall {
 	result := make([]ToolCall, len(tools))
 	for i, t := range tools {
 		result[i] = ToolCall{
@@ -136,8 +136,8 @@ func ConvertTools(tools []provider.Tool) []ToolCall {
 	return result
 }
 
-func ConvertOutput(r Output) provider.Output {
-	var msg provider.Message
+func ConvertOutput(r Output) core.Output {
+	var msg core.Message
 	msg.Role = "assistant"
 
 	for _, item := range r.Output {
@@ -153,7 +153,7 @@ func ConvertOutput(r Output) provider.Output {
 				msg.ReasoningContent += s.Text
 			}
 		case "function_call":
-			msg.ToolCalls = append(msg.ToolCalls, provider.ToolCall{
+			msg.ToolCalls = append(msg.ToolCalls, core.ToolCall{
 				ID:   item.CallID,
 				Type: "function",
 				Function: struct {
@@ -172,11 +172,11 @@ func ConvertOutput(r Output) provider.Output {
 		finishReason = "tool_calls"
 	}
 
-	return provider.Output{
-		Choices: []provider.OutputChoices{
+	return core.Output{
+		Choices: []core.OutputChoices{
 			{Message: msg, FinishReason: finishReason},
 		},
-		Usage: provider.Usage{
+		Usage: core.Usage{
 			Input:     r.Usage.InputTokens - r.Usage.InputTokensDetails.CachedTokens,
 			Output:    r.Usage.OutputTokens,
 			CacheRead: r.Usage.InputTokensDetails.CachedTokens,

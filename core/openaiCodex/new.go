@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	oauthCodex "github.com/pardnchiu/go-llm-router/core/oauth/codex"
 	"github.com/pardnchiu/go-llm-router/core"
+	oauthCodex "github.com/pardnchiu/go-llm-router/core/oauth/codex"
 )
 
 const Prefix = "codex@"
@@ -29,11 +29,11 @@ type Agent struct {
 	httpClient *http.Client
 	model      string
 
-	token *provider.CodexToken
+	token *core.CodexToken
 }
 
-func New(config provider.Config) (*Agent, error) {
-	token, ok := config.Token.(*provider.CodexToken)
+func New(config core.Config) (*Agent, error) {
+	token, ok := config.Token.(*core.CodexToken)
 	if !ok || token == nil {
 		return nil, fmt.Errorf("openaicodex.New: Token is required")
 	}

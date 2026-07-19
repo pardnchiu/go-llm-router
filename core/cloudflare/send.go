@@ -43,8 +43,8 @@ func flattenContent(c any) string {
 	return fmt.Sprintf("%v", c)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []provider.Tool, reasoning string) (*provider.Output, int, error) {
-	var merged []provider.Message
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
 		if m.Role == "system" {
@@ -53,7 +53,7 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 				systemParts = append(systemParts, s)
 			}
 		} else {
-			merged = append(merged, provider.Message{
+			merged = append(merged, core.Message{
 				Role:       m.Role,
 				Content:    flattenContent(m.Content),
 				ToolCalls:  m.ToolCalls,
@@ -62,7 +62,7 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		}
 	}
 	if len(systemParts) > 0 {
-		merged = append([]provider.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
+		merged = append([]core.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
 	input := map[string]any{

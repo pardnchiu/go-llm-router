@@ -13,8 +13,8 @@ const (
 	chatAPI = "https://openrouter.ai/api/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []provider.Tool, reasoning string) (*provider.Output, int, error) {
-	var merged []provider.Message
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
 		if m.Role == "system" {
@@ -26,17 +26,17 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		}
 	}
 	if len(systemParts) > 0 {
-		merged = append([]provider.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
+		merged = append([]core.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
-	effort := provider.ClampReasoningLevel(reasoning, provider.MaxReasoningLevel("openrouter", a.model))
+	effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("openrouter", a.model))
 	body := map[string]any{
 		"model":       a.model,
 		"messages":    merged,
 		"temperature": 0.2,
 		"tools":       tools,
 	}
-	if !provider.ReasoningDisabled(effort) {
+	if !core.ReasoningDisabled(effort) {
 		body["reasoning"] = map[string]any{"effort": effort}
 	}
 	result, code, err := go_pkg_http.POST[orOutput](ctx, a.httpClient, chatAPI, map[string]string{
@@ -67,18 +67,18 @@ type orOutput struct {
 				Text    string `json:"text"`
 				Summary string `json:"summary"`
 			} `json:"reasoning_details"`
-			ToolCalls []provider.ToolCall `json:"tool_calls"`
+			ToolCalls []core.ToolCall `json:"tool_calls"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage provider.Usage `json:"usage"`
+	Usage core.Usage `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
 }
 
-func (o *orOutput) toOutput() *provider.Output {
-	out := &provider.Output{Usage: o.Usage}
+func (o *orOutput) toOutput() *core.Output {
+	out := &core.Output{Usage: o.Usage}
 	for _, c := range o.Choices {
 		reasoning := c.Message.Reasoning
 		if reasoning == "" {
@@ -98,8 +98,8 @@ func (o *orOutput) toOutput() *provider.Output {
 			}
 			reasoning = sb.String()
 		}
-		out.Choices = append(out.Choices, provider.OutputChoices{
-			Message: provider.Message{
+		out.Choices = append(out.Choices, core.OutputChoices{
+			Message: core.Message{
 				Role:             c.Message.Role,
 				Content:          c.Message.Content,
 				ReasoningContent: reasoning,

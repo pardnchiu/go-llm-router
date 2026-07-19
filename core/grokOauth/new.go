@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	oauthGrok "github.com/pardnchiu/go-llm-router/core/oauth/grok"
 	"github.com/pardnchiu/go-llm-router/core"
+	oauthGrok "github.com/pardnchiu/go-llm-router/core/oauth/grok"
 )
 
 const Prefix = "grok-oauth@"
@@ -29,11 +29,11 @@ type Agent struct {
 	httpClient *http.Client
 	model      string
 
-	token *provider.GrokToken
+	token *core.GrokToken
 }
 
-func New(config provider.Config) (*Agent, error) {
-	token, ok := config.Token.(*provider.GrokToken)
+func New(config core.Config) (*Agent, error) {
+	token, ok := config.Token.(*core.GrokToken)
 	if !ok || token == nil {
 		return nil, fmt.Errorf("grokoauth.New: Token is required")
 	}

@@ -13,9 +13,9 @@ const (
 	chatAPI = "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []provider.Tool, reasoning string) (*provider.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
 	// * do not support mutiple system prompt, merge to one
-	var merged []provider.Message
+	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
 		if m.Role == "system" {
@@ -27,7 +27,7 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		}
 	}
 	if len(systemParts) > 0 {
-		merged = append([]provider.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
+		merged = append([]core.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
 	body := map[string]any{
@@ -36,14 +36,14 @@ func (a *Agent) Send(ctx context.Context, messages []provider.Message, tools []p
 		"temperature": 0.2,
 		"tools":       tools,
 	}
-	if provider.SupportReasoningEffort("nvidia", a.model) {
-		effort := provider.ClampReasoningLevel(reasoning, provider.MaxReasoningLevel("nvidia", a.model))
-		if !provider.ReasoningDisabled(effort) {
+	if core.SupportReasoningEffort("nvidia", a.model) {
+		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("nvidia", a.model))
+		if !core.ReasoningDisabled(effort) {
 			body["reasoning_effort"] = effort
 		}
 	}
 
-	result, code, err := go_pkg_http.POST[provider.Output](ctx, a.httpClient, chatAPI, map[string]string{
+	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, map[string]string{
 		"Authorization": "Bearer " + a.apiKey,
 		"Content-Type":  "application/json",
 	}, body, "json")

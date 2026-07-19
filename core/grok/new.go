@@ -17,13 +17,13 @@ const (
 	Prefix = "grok@"
 )
 
-func New(config provider.Config) (*Agent, error) {
+func New(config core.Config) (*Agent, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("grok.New: APIKey is required")
 	}
 
 	return &Agent{
-		httpClient: provider.NewHTTPClient(),
+		httpClient: core.NewHTTPClient(),
 		model:      config.Model,
 		apiKey:     config.APIKey,
 	}, nil

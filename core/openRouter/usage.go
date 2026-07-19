@@ -20,7 +20,7 @@ type creditsResponse struct {
 	} `json:"data"`
 }
 
-func Usage(ctx context.Context, config provider.Config) (float64, error) {
+func Usage(ctx context.Context, config core.Config) (float64, error) {
 	if config.APIKey == "" {
 		return 0, fmt.Errorf("Usage: APIKey is required")
 	}

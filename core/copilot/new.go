@@ -5,29 +5,29 @@ import (
 	"fmt"
 	"net/http"
 
-	oauthCopilot "github.com/pardnchiu/go-llm-router/core/oauth/copilot"
 	"github.com/pardnchiu/go-llm-router/core"
+	oauthCopilot "github.com/pardnchiu/go-llm-router/core/oauth/copilot"
 )
 
 type Agent struct {
 	httpClient *http.Client
 	model      string
-	Token      *provider.CopilotToken
-	Refresh    *provider.CopilotRefreshToken
+	Token      *core.CopilotToken
+	Refresh    *core.CopilotRefreshToken
 }
 
 const (
 	Prefix = "copilot@"
 )
 
-func New(config provider.Config) (*Agent, error) {
-	token, ok := config.Token.(*provider.CopilotToken)
+func New(config core.Config) (*Agent, error) {
+	token, ok := config.Token.(*core.CopilotToken)
 	if !ok || token == nil {
 		return nil, fmt.Errorf("copilot.New: Token is required")
 	}
 
 	return &Agent{
-		httpClient: provider.NewHTTPClient(),
+		httpClient: core.NewHTTPClient(),
 		model:      config.Model,
 		Token:      token,
 	}, nil

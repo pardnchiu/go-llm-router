@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pardnchiu/go-pkg/filesystem/keychain"
-
 	"github.com/pardnchiu/go-llm-router/core"
+	"github.com/pardnchiu/go-pkg/filesystem/keychain"
 )
 
 func httpClient() *http.Client {
@@ -25,7 +24,7 @@ func httpClient() *http.Client {
 	}
 }
 
-func Load() (*provider.CodexToken, error) {
+func Load() (*core.CodexToken, error) {
 	raw := keychain.Get(tokenKey)
 	// ! agenvoy.codex.token will deprecated in v1.*.*
 	if raw == "" {
@@ -34,7 +33,7 @@ func Load() (*provider.CodexToken, error) {
 	if raw == "" {
 		return nil, nil
 	}
-	var t provider.CodexToken
+	var t core.CodexToken
 	if err := json.Unmarshal([]byte(raw), &t); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
@@ -55,14 +54,14 @@ func ClearToken() error {
 	return err
 }
 
-func EnsureFresh(ctx context.Context, token *provider.CodexToken) (*provider.CodexToken, error) {
+func EnsureFresh(ctx context.Context, token *core.CodexToken) (*core.CodexToken, error) {
 	if token != nil && !token.Expired() {
 		return token, nil
 	}
 	return refresh(ctx, token)
 }
 
-func saveToken(t *provider.CodexToken) error {
+func saveToken(t *core.CodexToken) error {
 	raw, err := json.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("json.Marshal: %w", err)
