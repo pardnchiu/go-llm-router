@@ -14,7 +14,7 @@ const (
 	messagesAPI = "https://api.anthropic.com/v1/messages"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
 	var systemPrompts []map[string]any
 	var newMessages []map[string]any
 
@@ -73,6 +73,12 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	default:
 		requestBody["temperature"] = 0.2
 	}
+
+	return requestBody
+}
+
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+	requestBody := a.buildRequestBody(messages, tools, reasoning)
 
 	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, messagesAPI, map[string]string{
 		"x-api-key":         a.apiKey,
