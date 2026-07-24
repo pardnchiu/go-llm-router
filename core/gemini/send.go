@@ -113,6 +113,10 @@ func (a *Agent) convertToContent(message core.Message) Content {
 	if role == "assistant" {
 		role = "model"
 	}
+	// * gemini contents only accepts user / model; empty role falls back to user
+	if role == "" {
+		role = "user"
+	}
 	content.Role = role
 
 	if len(message.ToolCalls) > 0 {
