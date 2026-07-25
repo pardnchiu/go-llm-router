@@ -77,7 +77,7 @@ func rewriteSyntheticActivations(messages []core.Message) []core.Message {
 func (a *Agent) convertToContent(message core.Message) Content {
 	content := Content{}
 	if message.ToolCallID != "" {
-		content.Role = "function"
+		content.Role = "user"
 		data := map[string]any{}
 		if contentStr, ok := message.Content.(string); ok {
 			data["result"] = contentStr
@@ -112,6 +112,10 @@ func (a *Agent) convertToContent(message core.Message) Content {
 	role := message.Role
 	if role == "assistant" {
 		role = "model"
+	}
+	// * gemini contents only accepts user / model; empty role falls back to user
+	if role == "" {
+		role = "user"
 	}
 	content.Role = role
 

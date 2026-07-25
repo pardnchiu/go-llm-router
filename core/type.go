@@ -11,6 +11,38 @@ type Agent interface {
 	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning string) (*Output, int, error)
 }
 
+type StreamAgent interface {
+	SendStream(ctx context.Context, messages []Message, toolDefs []Tool, reasoning string) (<-chan StreamEvent, error)
+}
+
+type StreamEventType string
+
+const (
+	StreamEventText      StreamEventType = "text"
+	StreamEventReasoning StreamEventType = "reasoning"
+	StreamEventToolCall  StreamEventType = "tool_call"
+	StreamEventUsage     StreamEventType = "usage"
+	StreamEventDone      StreamEventType = "done"
+	StreamEventError     StreamEventType = "error"
+)
+
+type ToolCallDelta struct {
+	Index     int
+	ID        string
+	Name      string
+	Arguments string
+}
+
+type StreamEvent struct {
+	Type           StreamEventType
+	TextDelta      string
+	ReasoningDelta string
+	ToolCall       *ToolCallDelta
+	Usage          *Usage
+	FinishReason   string
+	Err            error
+}
+
 type Config struct {
 	Model   string
 	APIKey  string

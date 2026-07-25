@@ -25,6 +25,9 @@ func reasoningLevelIndex(level string) int {
 }
 
 func ClampReasoningLevel(level, maxLevel string) string {
+	if level == "" {
+		level = "medium"
+	}
 	if reasoningLevelIndex(level) > reasoningLevelIndex(maxLevel) {
 		return maxLevel
 	}

@@ -14,57 +14,48 @@ const (
 	responsesAPI = "https://api.githubcopilot.com/responses"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
+		return nil, fmt.Errorf("a.authHeader: %w", err)
 	}
-
-	headers := map[string]string{
+	return map[string]string{
 		"Authorization":  auth,
 		"Editor-Version": "vscode/1.95.0",
-	}
+	}, nil
+}
 
-	if core.ResponsesAPI("copilot", a.model) {
-		var instructions string
-		nonSystem := make([]core.Message, 0, len(messages))
-		for _, m := range messages {
-			if m.Role == "system" {
-				if s, ok := m.Content.(string); ok {
-					if instructions != "" {
-						instructions += "\n"
-					}
-					instructions += s
+func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
+	var instructions string
+	nonSystem := make([]core.Message, 0, len(messages))
+	for _, m := range messages {
+		if m.Role == "system" {
+			if s, ok := m.Content.(string); ok {
+				if instructions != "" {
+					instructions += "\n"
 				}
-				continue
+				instructions += s
 			}
-			nonSystem = append(nonSystem, m)
+			continue
 		}
-
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("copilot", a.model))
-		body := map[string]any{
-			"model":        a.model,
-			"input":        copilotResponse.ConvertInput(nonSystem),
-			"tools":        copilotResponse.ConvertTools(tools),
-			"instructions": instructions,
-			"store":        false,
-		}
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
-		}
-
-		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, headers, body, "json")
-		if err != nil {
-			return nil, code, err
-		}
-		if result.Error != nil {
-			return nil, code, fmt.Errorf("%s", result.Error.Message)
-		}
-
-		out := copilotResponse.ConvertOutput(result)
-		return &out, code, nil
+		nonSystem = append(nonSystem, m)
 	}
 
+	effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("copilot", a.model))
+	body := map[string]any{
+		"model":        a.model,
+		"input":        copilotResponse.ConvertInput(nonSystem),
+		"tools":        copilotResponse.ConvertTools(tools),
+		"instructions": instructions,
+		"store":        false,
+	}
+	if !core.ReasoningDisabled(effort) {
+		body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
+	}
+	return body
+}
+
+func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
 	body := map[string]any{
 		"model":    a.model,
 		"messages": messages,
@@ -79,6 +70,31 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 			body["reasoning_effort"] = effort
 		}
 	}
+	return body
+}
+
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+	headers, err := a.headers(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if core.ResponsesAPI("copilot", a.model) {
+		body := a.buildResponsesBody(messages, tools, reasoning)
+
+		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, headers, body, "json")
+		if err != nil {
+			return nil, code, err
+		}
+		if result.Error != nil {
+			return nil, code, fmt.Errorf("%s", result.Error.Message)
+		}
+
+		out := copilotResponse.ConvertOutput(result)
+		return &out, code, nil
+	}
+
+	body := a.buildChatBody(messages, tools, reasoning)
 
 	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
 	if err != nil {
