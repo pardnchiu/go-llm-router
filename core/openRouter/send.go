@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://openrouter.ai/api/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
@@ -29,14 +29,13 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		merged = append([]core.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
-	effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("openrouter", a.model))
 	body := map[string]any{
 		"model":       a.model,
 		"messages":    merged,
 		"temperature": 0.2,
 		"tools":       tools,
 	}
-	if !core.ReasoningDisabled(effort) {
+	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning"] = map[string]any{"effort": effort}
 	}
 	result, code, err := go_pkg_http.POST[orOutput](ctx, a.httpClient, chatAPI, map[string]string{

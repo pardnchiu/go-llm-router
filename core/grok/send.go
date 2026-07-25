@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://api.x.ai/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
@@ -37,11 +37,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if core.SupportTemperature("grok", a.model) {
 		body["temperature"] = 0.2
 	}
-	if core.SupportReasoningEffort("grok", a.model) {
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("grok", a.model))
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning_effort"] = effort
-		}
+	if effort, ok := a.effort(reasoning); ok {
+		body["reasoning_effort"] = effort
 	}
 
 	out, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, map[string]string{

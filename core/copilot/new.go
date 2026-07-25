@@ -14,6 +14,8 @@ type Agent struct {
 	model      string
 	Token      *core.CopilotToken
 	Refresh    *core.CopilotRefreshToken
+	efforts    []string
+	endpoints  []string
 }
 
 const (
@@ -30,6 +32,8 @@ func New(config core.Config) (*Agent, error) {
 		httpClient: core.NewHTTPClient(),
 		model:      config.Model,
 		Token:      token,
+		efforts:    config.Efforts,
+		endpoints:  config.Endpoints,
 	}, nil
 }
 

@@ -15,7 +15,7 @@ const (
 	modelsAPI = "https://api.anthropic.com/v1/models"
 )
 
-func Models(ctx context.Context, config core.Config) ([]string, error) {
+func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([]string, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
@@ -34,9 +34,14 @@ func Models(ctx context.Context, config core.Config) ([]string, error) {
 
 	ids := make([]string, 0, len(data.Data))
 	for _, m := range data.Data {
-		if id := strings.TrimSpace(m.ID); id != "" {
-			ids = append(ids, id)
+		id := strings.TrimSpace(m.ID)
+		if id == "" {
+			continue
 		}
+		if filter.TextOnly && !core.IsTextModel(id) {
+			continue
+		}
+		ids = append(ids, id)
 	}
 	return ids, nil
 }

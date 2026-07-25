@@ -14,7 +14,7 @@ const (
 	messagesAPI = "https://api.anthropic.com/v1/messages"
 )
 
-func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
+func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	var systemPrompts []map[string]any
 	var newMessages []map[string]any
 
@@ -42,12 +42,6 @@ func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, rea
 
 	newTools := a.convertToTools(tools)
 
-	thinkingType := core.GetThinkingType("claude", a.model)
-	level := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("claude", a.model))
-	if core.ReasoningDisabled(level) {
-		thinkingType = ""
-	}
-
 	requestBody := map[string]any{
 		"model":      a.model,
 		"max_tokens": a.maxOutputTokens(),
@@ -57,27 +51,12 @@ func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, rea
 	if len(systemPrompts) > 0 {
 		requestBody["system"] = systemPrompts
 	}
-	switch thinkingType {
-	case "adaptive":
-		requestBody["thinking"] = map[string]any{"type": "adaptive"}
-		requestBody["output_config"] = map[string]any{"effort": level}
-	case "enabled":
-		budget := map[string]int{"low": 5000, "medium": 10000, "high": 32000}[level]
-		if budget == 0 {
-			budget = 10000
-		}
-		requestBody["thinking"] = map[string]any{
-			"type":          "enabled",
-			"budget_tokens": budget,
-		}
-	default:
-		requestBody["temperature"] = 0.2
-	}
+	a.applyReasoning(requestBody, reasoning)
 
 	return requestBody
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	requestBody := a.buildRequestBody(messages, tools, reasoning)
 
 	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, messagesAPI, map[string]string{

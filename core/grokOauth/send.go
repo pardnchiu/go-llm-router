@@ -16,7 +16,7 @@ import (
 
 const responsesAPI = "https://api.x.ai/v1/responses"
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
@@ -45,11 +45,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		"store":        false,
 		"stream":       true,
 	}
-	if core.SupportReasoningEffort("grok-oauth", a.model) {
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("grok-oauth", a.model))
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning"] = map[string]any{"effort": effort}
-		}
+	if effort, ok := a.effort(reasoning); ok {
+		body["reasoning"] = map[string]any{"effort": effort}
 	}
 
 	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, map[string]string{
@@ -102,10 +99,10 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		textBuf       strings.Builder
 		completedText string
 		reasonBuf     strings.Builder
-		toolCalls []core.ToolCall
-		usage     core.Usage
-		argsBuf   = map[string]*strings.Builder{}
-		pending   []pendingCall
+		toolCalls     []core.ToolCall
+		usage         core.Usage
+		argsBuf       = map[string]*strings.Builder{}
+		pending       []pendingCall
 	)
 	getBuf := func(key string) *strings.Builder {
 		if key == "" {

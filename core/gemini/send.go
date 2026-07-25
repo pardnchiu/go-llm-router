@@ -14,7 +14,7 @@ const (
 	baseAPI = "https://generativelanguage.googleapis.com/v1beta/models/"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	messages = rewriteSyntheticActivations(messages)
 
 	var systemParts []string
@@ -222,29 +222,10 @@ func sanitizeSchema(m map[string]any) {
 	}
 }
 
-func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools []map[string]any, cachedContent string, reasoning string) map[string]any {
-	thinkingConfig := core.GetThinkingConfig("gemini", a.model)
-	level := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("gemini", a.model))
-	level = core.FloorReasoningLevel(level, core.MinReasoningLevel("gemini", a.model))
-
+func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools []map[string]any, cachedContent string, reasoning core.Reasoning) map[string]any {
 	generationConfig := map[string]any{}
-	switch {
-	case thinkingConfig == "level":
-		generationConfig["thinkingConfig"] = map[string]any{
-			"thinkingLevel":   level,
-			"includeThoughts": true,
-		}
-	case thinkingConfig == "budget":
-		generationConfig["temperature"] = 0.2
-		budget := core.ThinkingBudget(a.model, level)
-		thinking := map[string]any{"thinkingBudget": budget}
-		if budget > 0 {
-			thinking["includeThoughts"] = true
-		}
-		generationConfig["thinkingConfig"] = thinking
-	default:
-		generationConfig["temperature"] = 0.2
-	}
+	a.applyReasoning(generationConfig, reasoning)
+
 	body := map[string]any{
 		"contents":         messages,
 		"generationConfig": generationConfig,

@@ -14,6 +14,7 @@ type Agent struct {
 	apiKey     string
 	cacheMu    sync.Mutex
 	cacheStore map[string]*geminiCacheEntry
+	thinking   *bool
 }
 
 const (
@@ -30,6 +31,7 @@ func New(config core.Config) (*Agent, error) {
 		model:      config.Model,
 		apiKey:     config.APIKey,
 		cacheStore: make(map[string]*geminiCacheEntry),
+		thinking:   config.Thinking,
 	}, nil
 }
 
