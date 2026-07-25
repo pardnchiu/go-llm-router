@@ -9,6 +9,9 @@ type Output struct {
 			Probability string `json:"probability"`
 		} `json:"safetyRatings,omitempty"`
 	} `json:"candidates"`
+	PromptFeedback *struct {
+		BlockReason string `json:"blockReason,omitempty"`
+	} `json:"promptFeedback,omitempty"`
 	UsageMetadata *struct {
 		PromptTokenCount        int `json:"promptTokenCount"`
 		CandidatesTokenCount    int `json:"candidatesTokenCount"`

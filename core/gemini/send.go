@@ -17,13 +17,13 @@ const (
 func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
 	messages = rewriteSyntheticActivations(messages)
 
-	var systemPrompt string
+	var systemParts []string
 	var newMessages []Content
 
 	for _, msg := range messages {
 		if msg.Role == "system" {
-			if content, ok := msg.Content.(string); ok {
-				systemPrompt = content
+			if content, ok := msg.Content.(string); ok && content != "" {
+				systemParts = append(systemParts, content)
 			}
 			continue
 		}
@@ -32,6 +32,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		newMessages = append(newMessages, message)
 	}
 
+	systemPrompt := strings.Join(systemParts, "\n\n")
 	newTools := a.convertToTools(tools)
 	apiURL := fmt.Sprintf("%s%s:generateContent", baseAPI, a.model)
 
@@ -46,7 +47,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		return nil, code, err
 	}
 
-	out := a.convertToOutput(&result)
+	out, err := a.convertToOutput(&result)
+	if err != nil {
+		return nil, code, err
+	}
 	return out, code, nil
 }
 
@@ -227,13 +231,17 @@ func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools 
 	switch {
 	case thinkingConfig == "level":
 		generationConfig["thinkingConfig"] = map[string]any{
-			"thinkingLevel": level,
+			"thinkingLevel":   level,
+			"includeThoughts": true,
 		}
 	case thinkingConfig == "budget":
 		generationConfig["temperature"] = 0.2
-		generationConfig["thinkingConfig"] = map[string]any{
-			"thinkingBudget": core.ThinkingBudget(a.model, level),
+		budget := core.ThinkingBudget(a.model, level)
+		thinking := map[string]any{"thinkingBudget": budget}
+		if budget > 0 {
+			thinking["includeThoughts"] = true
 		}
+		generationConfig["thinkingConfig"] = thinking
 	default:
 		generationConfig["temperature"] = 0.2
 	}
@@ -263,7 +271,7 @@ func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools 
 	return body
 }
 
-func (a *Agent) convertToOutput(resp *Output) *core.Output {
+func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 	output := &core.Output{
 		Choices: make([]core.OutputChoices, 1),
 	}
@@ -277,12 +285,16 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 	}
 
 	if len(resp.Candidates) == 0 {
-		return output
+		reason := "no candidates"
+		if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
+			reason = "prompt blocked: " + resp.PromptFeedback.BlockReason
+		}
+		return nil, fmt.Errorf("gemini returned no content (%s)", reason)
 	}
 
 	candidate := resp.Candidates[0]
 	var toolCalls []core.ToolCall
-	var textContent string
+	var textContent strings.Builder
 	var reasoning strings.Builder
 
 	for _, part := range candidate.Content.Parts {
@@ -290,7 +302,7 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 			if part.Thought {
 				reasoning.WriteString(part.Text)
 			} else {
-				textContent = part.Text
+				textContent.WriteString(part.Text)
 			}
 		} else if part.FunctionCall != nil {
 			args := "{}"
@@ -313,13 +325,18 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 		}
 	}
 
+	text := textContent.String()
+	if text == "" && len(toolCalls) == 0 && candidate.FinishReason != "" && candidate.FinishReason != "STOP" {
+		return nil, fmt.Errorf("gemini returned no content (finishReason: %s)", candidate.FinishReason)
+	}
+
 	output.Choices[0].Message = core.Message{
 		Role:             "assistant",
-		Content:          textContent,
+		Content:          text,
 		ReasoningContent: reasoning.String(),
 		ToolCalls:        toolCalls,
 	}
 	output.Choices[0].FinishReason = candidate.FinishReason
 
-	return output
+	return output, nil
 }

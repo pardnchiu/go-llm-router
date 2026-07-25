@@ -92,11 +92,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if result.Error != nil {
 		return nil, code, fmt.Errorf("%s", result.Error.Message)
 	}
-	if result.StopReason == "max_tokens" {
-		return nil, code, fmt.Errorf("exceeded max_tokens (%d)", a.maxOutputTokens())
+	out, err := a.convertToOutput(&result)
+	if err != nil {
+		return nil, code, err
 	}
-
-	out := a.convertToOutput(&result)
 	return out, code, nil
 }
 
@@ -238,7 +237,7 @@ func (a *Agent) convertToTools(tools []core.Tool) []map[string]any {
 	return newTools
 }
 
-func (a *Agent) convertToOutput(resp *Output) *core.Output {
+func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 	output := &core.Output{
 		Choices: make([]core.OutputChoices, 1),
 		Usage: core.Usage{
@@ -250,12 +249,12 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 	}
 
 	var toolCalls []core.ToolCall
-	var textContent string
+	var textContent strings.Builder
 	var reasoning strings.Builder
 
 	for _, item := range resp.Content {
 		if item.Type == "text" {
-			textContent = item.Text
+			textContent.WriteString(item.Text)
 		} else if item.Type == "thinking" {
 			reasoning.WriteString(item.Thinking)
 		} else if item.Type == "tool_use" {
@@ -278,12 +277,19 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 		}
 	}
 
+	text := textContent.String()
+	if text == "" && len(toolCalls) == 0 &&
+		resp.StopReason != "" && resp.StopReason != "end_turn" && resp.StopReason != "stop_sequence" {
+		return nil, fmt.Errorf("claude returned no content (stopReason: %s)", resp.StopReason)
+	}
+
 	output.Choices[0].Message = core.Message{
 		Role:             "assistant",
-		Content:          textContent,
+		Content:          text,
 		ReasoningContent: reasoning.String(),
 		ToolCalls:        toolCalls,
 	}
+	output.Choices[0].FinishReason = resp.StopReason
 
-	return output
+	return output, nil
 }

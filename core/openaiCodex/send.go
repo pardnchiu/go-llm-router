@@ -99,6 +99,7 @@ type sseEvent struct {
 	ItemID      string `json:"item_id"`
 	OutputIndex int    `json:"output_index"`
 	Arguments   string `json:"arguments"`
+	Message     string `json:"message"`
 	Item        *struct {
 		ID        string `json:"id"`
 		Type      string `json:"type"`
@@ -123,6 +124,7 @@ type pendingCall struct {
 func parseSSEStream(resp *http.Response) (*core.Output, error) {
 	var (
 		textBuf        strings.Builder
+		completedText  string
 		reasonDeltaBuf strings.Builder
 		reasonItemBuf  strings.Builder
 		toolCalls      []core.ToolCall
@@ -222,16 +224,29 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 				}
 			}
 
-		case "response.completed":
+		case "response.failed", "error":
+			msg := ev.Message
+			if ev.Response != nil && ev.Response.Error != nil {
+				msg = ev.Response.Error.Message
+			}
+			if msg == "" {
+				msg = ev.Type
+			}
+			return nil, fmt.Errorf("codex stream: %s", msg)
+
+		case "response.completed", "response.incomplete":
 			if ev.Response != nil {
 				usage = core.Usage{
 					Input:     ev.Response.Usage.InputTokens - ev.Response.Usage.InputTokensDetails.CachedTokens,
 					Output:    ev.Response.Usage.OutputTokens,
 					CacheRead: ev.Response.Usage.InputTokensDetails.CachedTokens,
 				}
-				if len(pending) == 0 {
-					out := copilotResponse.ConvertOutput(*ev.Response)
-					if len(out.Choices) > 0 {
+				out := copilotResponse.ConvertOutput(*ev.Response)
+				if len(out.Choices) > 0 {
+					if str, ok := out.Choices[0].Message.Content.(string); ok {
+						completedText = str
+					}
+					if len(pending) == 0 {
 						toolCalls = out.Choices[0].Message.ToolCalls
 					}
 				}
@@ -271,6 +286,8 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 	msg := core.Message{Role: "assistant"}
 	if str := textBuf.String(); str != "" {
 		msg.Content = str
+	} else if completedText != "" {
+		msg.Content = completedText
 	}
 	msg.ReasoningContent = reasonDeltaBuf.String()
 	if reasonItemBuf.Len() > len(msg.ReasoningContent) {
