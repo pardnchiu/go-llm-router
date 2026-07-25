@@ -10,7 +10,7 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-func Models(ctx context.Context, config core.Config) ([]string, error) {
+func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([]string, error) {
 	if config.APIKey == "" || config.AccountID == "" {
 		return nil, fmt.Errorf("Models: APIKey and AccountID are required")
 	}
@@ -29,9 +29,13 @@ func Models(ctx context.Context, config core.Config) ([]string, error) {
 
 	ids := make([]string, 0, len(data.Result))
 	for _, m := range data.Result {
-		if m.Name != "" && m.Task.Name == "Text Generation" {
-			ids = append(ids, m.Name)
+		if m.Name == "" || m.Task.Name != "Text Generation" {
+			continue
 		}
+		if filter.TextOnly && !core.IsTextModel(m.Name) {
+			continue
+		}
+		ids = append(ids, m.Name)
 	}
 	return ids, nil
 }

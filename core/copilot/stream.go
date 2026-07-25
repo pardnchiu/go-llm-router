@@ -13,7 +13,7 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (<-chan core.StreamEvent, error) {
+func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (<-chan core.StreamEvent, error) {
 	headers, err := a.headers(ctx)
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 	headers["Accept"] = "text/event-stream"
 	headers["Accept-Encoding"] = "identity"
 
-	if core.ResponsesAPI("copilot", a.model) {
+	if a.useResponses() {
 		body := a.buildResponsesBody(messages, tools, reasoning)
 		body["stream"] = true
 		return a.streamResponses(ctx, headers, body)

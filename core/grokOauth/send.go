@@ -16,7 +16,7 @@ import (
 
 const responsesAPI = "https://api.x.ai/v1/responses"
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
@@ -45,11 +45,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		"store":        false,
 		"stream":       true,
 	}
-	if core.SupportReasoningEffort("grok-oauth", a.model) {
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("grok-oauth", a.model))
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning"] = map[string]any{"effort": effort}
-		}
+	if effort, ok := a.effort(reasoning); ok {
+		body["reasoning"] = map[string]any{"effort": effort}
 	}
 
 	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, map[string]string{
@@ -79,6 +76,7 @@ type sseEvent struct {
 	ItemID      string `json:"item_id"`
 	OutputIndex int    `json:"output_index"`
 	Arguments   string `json:"arguments"`
+	Message     string `json:"message"`
 	Item        *struct {
 		ID        string `json:"id"`
 		Type      string `json:"type"`
@@ -98,12 +96,13 @@ type pendingCall struct {
 
 func parseSSEStream(resp *http.Response) (*core.Output, error) {
 	var (
-		textBuf   strings.Builder
-		reasonBuf strings.Builder
-		toolCalls []core.ToolCall
-		usage     core.Usage
-		argsBuf   = map[string]*strings.Builder{}
-		pending   []pendingCall
+		textBuf       strings.Builder
+		completedText string
+		reasonBuf     strings.Builder
+		toolCalls     []core.ToolCall
+		usage         core.Usage
+		argsBuf       = map[string]*strings.Builder{}
+		pending       []pendingCall
 	)
 	getBuf := func(key string) *strings.Builder {
 		if key == "" {
@@ -192,16 +191,29 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 				}
 			}
 
-		case "response.completed":
+		case "response.failed", "error":
+			msg := ev.Message
+			if ev.Response != nil && ev.Response.Error != nil {
+				msg = ev.Response.Error.Message
+			}
+			if msg == "" {
+				msg = ev.Type
+			}
+			return nil, fmt.Errorf("grok stream: %s", msg)
+
+		case "response.completed", "response.incomplete":
 			if ev.Response != nil {
 				usage = core.Usage{
 					Input:     ev.Response.Usage.InputTokens - ev.Response.Usage.InputTokensDetails.CachedTokens,
 					Output:    ev.Response.Usage.OutputTokens,
 					CacheRead: ev.Response.Usage.InputTokensDetails.CachedTokens,
 				}
-				if len(pending) == 0 {
-					out := copilotResponse.ConvertOutput(*ev.Response)
-					if len(out.Choices) > 0 {
+				out := copilotResponse.ConvertOutput(*ev.Response)
+				if len(out.Choices) > 0 {
+					if str, ok := out.Choices[0].Message.Content.(string); ok {
+						completedText = str
+					}
+					if len(pending) == 0 {
 						toolCalls = out.Choices[0].Message.ToolCalls
 					}
 				}
@@ -241,6 +253,8 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 	msg := core.Message{Role: "assistant"}
 	if str := textBuf.String(); str != "" {
 		msg.Content = str
+	} else if completedText != "" {
+		msg.Content = completedText
 	}
 	msg.ReasoningContent = reasonBuf.String()
 	msg.ToolCalls = toolCalls

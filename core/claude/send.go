@@ -14,7 +14,7 @@ const (
 	messagesAPI = "https://api.anthropic.com/v1/messages"
 )
 
-func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
+func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	var systemPrompts []map[string]any
 	var newMessages []map[string]any
 
@@ -42,12 +42,6 @@ func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, rea
 
 	newTools := a.convertToTools(tools)
 
-	thinkingType := core.GetThinkingType("claude", a.model)
-	level := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("claude", a.model))
-	if core.ReasoningDisabled(level) {
-		thinkingType = ""
-	}
-
 	requestBody := map[string]any{
 		"model":      a.model,
 		"max_tokens": a.maxOutputTokens(),
@@ -57,27 +51,12 @@ func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, rea
 	if len(systemPrompts) > 0 {
 		requestBody["system"] = systemPrompts
 	}
-	switch thinkingType {
-	case "adaptive":
-		requestBody["thinking"] = map[string]any{"type": "adaptive"}
-		requestBody["output_config"] = map[string]any{"effort": level}
-	case "enabled":
-		budget := map[string]int{"low": 5000, "medium": 10000, "high": 32000}[level]
-		if budget == 0 {
-			budget = 10000
-		}
-		requestBody["thinking"] = map[string]any{
-			"type":          "enabled",
-			"budget_tokens": budget,
-		}
-	default:
-		requestBody["temperature"] = 0.2
-	}
+	a.applyReasoning(requestBody, reasoning)
 
 	return requestBody
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	requestBody := a.buildRequestBody(messages, tools, reasoning)
 
 	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, messagesAPI, map[string]string{
@@ -92,11 +71,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if result.Error != nil {
 		return nil, code, fmt.Errorf("%s", result.Error.Message)
 	}
-	if result.StopReason == "max_tokens" {
-		return nil, code, fmt.Errorf("exceeded max_tokens (%d)", a.maxOutputTokens())
+	out, err := a.convertToOutput(&result)
+	if err != nil {
+		return nil, code, err
 	}
-
-	out := a.convertToOutput(&result)
 	return out, code, nil
 }
 
@@ -238,7 +216,7 @@ func (a *Agent) convertToTools(tools []core.Tool) []map[string]any {
 	return newTools
 }
 
-func (a *Agent) convertToOutput(resp *Output) *core.Output {
+func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 	output := &core.Output{
 		Choices: make([]core.OutputChoices, 1),
 		Usage: core.Usage{
@@ -250,12 +228,12 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 	}
 
 	var toolCalls []core.ToolCall
-	var textContent string
+	var textContent strings.Builder
 	var reasoning strings.Builder
 
 	for _, item := range resp.Content {
 		if item.Type == "text" {
-			textContent = item.Text
+			textContent.WriteString(item.Text)
 		} else if item.Type == "thinking" {
 			reasoning.WriteString(item.Thinking)
 		} else if item.Type == "tool_use" {
@@ -278,12 +256,19 @@ func (a *Agent) convertToOutput(resp *Output) *core.Output {
 		}
 	}
 
+	text := textContent.String()
+	if text == "" && len(toolCalls) == 0 &&
+		resp.StopReason != "" && resp.StopReason != "end_turn" && resp.StopReason != "stop_sequence" {
+		return nil, fmt.Errorf("claude returned no content (stopReason: %s)", resp.StopReason)
+	}
+
 	output.Choices[0].Message = core.Message{
 		Role:             "assistant",
-		Content:          textContent,
+		Content:          text,
 		ReasoningContent: reasoning.String(),
 		ToolCalls:        toolCalls,
 	}
+	output.Choices[0].FinishReason = resp.StopReason
 
-	return output
+	return output, nil
 }

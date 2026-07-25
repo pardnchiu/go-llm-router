@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	// * do not support mutiple system prompt, merge to one
 	var merged []core.Message
 	var systemParts []string
@@ -36,11 +36,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		"temperature": 0.2,
 		"tools":       tools,
 	}
-	if core.SupportReasoningEffort("nvidia", a.model) {
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("nvidia", a.model))
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning_effort"] = effort
-		}
+	if effort, ok := a.effort(reasoning); ok {
+		body["reasoning_effort"] = effort
 	}
 
 	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, map[string]string{

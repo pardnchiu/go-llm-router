@@ -8,11 +8,11 @@ import (
 
 type Agent interface {
 	Name() string
-	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning string) (*Output, int, error)
+	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning) (*Output, int, error)
 }
 
 type StreamAgent interface {
-	SendStream(ctx context.Context, messages []Message, toolDefs []Tool, reasoning string) (<-chan StreamEvent, error)
+	SendStream(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning) (<-chan StreamEvent, error)
 }
 
 type StreamEventType string
@@ -52,6 +52,9 @@ type Config struct {
 	// * cloudflare
 	AccountID string
 	GatewayID string
+	Thinking  *bool
+	Efforts   []string
+	Endpoints []string
 }
 
 type Models struct {
@@ -62,9 +65,16 @@ type Models struct {
 
 type CopilotModels struct {
 	Data []struct {
-		ID                 string `json:"id"`
-		ModelPickerEnabled bool   `json:"model_picker_enabled"`
-		Policy             struct {
+		ID                 string   `json:"id"`
+		ModelPickerEnabled bool     `json:"model_picker_enabled"`
+		SupportedEndpoints []string `json:"supported_endpoints"`
+		Capabilities       struct {
+			Type     string `json:"type"`
+			Supports struct {
+				ReasoningEffort []string `json:"reasoning_effort"`
+			} `json:"supports"`
+		} `json:"capabilities"`
+		Policy struct {
 			State string `json:"state"`
 		} `json:"policy"`
 	} `json:"data"`
@@ -72,8 +82,17 @@ type CopilotModels struct {
 
 type GeminiModels struct {
 	Models []struct {
-		Name string `json:"name"`
+		Name                       string   `json:"name"`
+		SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
+		Thinking                   bool     `json:"thinking"`
 	} `json:"models"`
+}
+
+type ModelInfo struct {
+	ID        string   `json:"id"`
+	Thinking  bool     `json:"thinking"`
+	Efforts   []string `json:"efforts,omitempty"`
+	Endpoints []string `json:"endpoints,omitempty"`
 }
 
 type CloudFlareModels struct {

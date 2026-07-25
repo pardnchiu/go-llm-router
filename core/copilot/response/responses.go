@@ -2,6 +2,7 @@ package copilotResponse
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/pardnchiu/go-llm-router/core"
 )
@@ -139,13 +140,14 @@ func ConvertTools(tools []core.Tool) []ToolCall {
 func ConvertOutput(r Output) core.Output {
 	var msg core.Message
 	msg.Role = "assistant"
+	var text strings.Builder
 
 	for _, item := range r.Output {
 		switch item.Type {
 		case "message":
 			for _, c := range item.Content {
 				if c.Type == "output_text" {
-					msg.Content = c.Text
+					text.WriteString(c.Text)
 				}
 			}
 		case "reasoning":
@@ -165,6 +167,10 @@ func ConvertOutput(r Output) core.Output {
 				},
 			})
 		}
+	}
+
+	if str := text.String(); str != "" {
+		msg.Content = str
 	}
 
 	finishReason := "stop"

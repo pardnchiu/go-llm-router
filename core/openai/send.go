@@ -14,7 +14,7 @@ const (
 	responsesAPI = "https://api.openai.com/v1/responses"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	headers := map[string]string{
 		"Authorization": "Bearer " + a.apiKey,
 		"Content-Type":  "application/json",
@@ -36,7 +36,6 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 			nonSystem = append(nonSystem, m)
 		}
 
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("openai", a.model))
 		body := map[string]any{
 			"model":        a.model,
 			"input":        copilotResponse.ConvertInput(nonSystem),
@@ -44,7 +43,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 			"instructions": instructions,
 			"store":        false,
 		}
-		if !core.ReasoningDisabled(effort) {
+		if effort, ok := a.effort(reasoning); ok {
 			body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
 		}
 
@@ -68,11 +67,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if core.SupportTemperature("openai", a.model) {
 		body["temperature"] = 0.2
 	}
-	if core.SupportReasoningEffort("openai", a.model) {
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("openai", a.model))
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning_effort"] = effort
-		}
+	if effort, ok := a.effort(reasoning); ok {
+		body["reasoning_effort"] = effort
 	}
 	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
 	if err != nil {

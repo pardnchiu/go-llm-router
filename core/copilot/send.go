@@ -3,6 +3,7 @@ package copilot
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/pardnchiu/go-llm-router/core"
 	copilotResponse "github.com/pardnchiu/go-llm-router/core/copilot/response"
@@ -25,7 +26,7 @@ func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	}, nil
 }
 
-func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
+func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	var instructions string
 	nonSystem := make([]core.Message, 0, len(messages))
 	for _, m := range messages {
@@ -41,7 +42,6 @@ func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, r
 		nonSystem = append(nonSystem, m)
 	}
 
-	effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("copilot", a.model))
 	body := map[string]any{
 		"model":        a.model,
 		"input":        copilotResponse.ConvertInput(nonSystem),
@@ -49,13 +49,13 @@ func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, r
 		"instructions": instructions,
 		"store":        false,
 	}
-	if !core.ReasoningDisabled(effort) {
+	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
 	}
 	return body
 }
 
-func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reasoning string) map[string]any {
+func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	body := map[string]any{
 		"model":    a.model,
 		"messages": messages,
@@ -64,22 +64,33 @@ func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reason
 	if core.SupportTemperature("copilot", a.model) {
 		body["temperature"] = 0.2
 	}
-	if core.SupportReasoningEffort("copilot", a.model) {
-		effort := core.ClampReasoningLevel(reasoning, core.MaxReasoningLevel("copilot", a.model))
-		if !core.ReasoningDisabled(effort) {
-			body["reasoning_effort"] = effort
-		}
+	if effort, ok := a.effort(reasoning); ok {
+		body["reasoning_effort"] = effort
 	}
 	return body
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning string) (*core.Output, int, error) {
+func (a *Agent) useResponses() bool {
+	if len(a.endpoints) > 0 {
+		hasChat := slices.Contains(a.endpoints, "/chat/completions")
+		hasResponses := slices.Contains(a.endpoints, "/responses")
+		if hasResponses && !hasChat {
+			return true
+		}
+		if hasChat && !hasResponses {
+			return false
+		}
+	}
+	return core.ResponsesAPI("copilot", a.model)
+}
+
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
 	headers, err := a.headers(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	if core.ResponsesAPI("copilot", a.model) {
+	if a.useResponses() {
 		body := a.buildResponsesBody(messages, tools, reasoning)
 
 		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, headers, body, "json")
