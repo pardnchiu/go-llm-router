@@ -77,7 +77,7 @@ func rewriteSyntheticActivations(messages []core.Message) []core.Message {
 func (a *Agent) convertToContent(message core.Message) Content {
 	content := Content{}
 	if message.ToolCallID != "" {
-		content.Role = "function"
+		content.Role = "user"
 		data := map[string]any{}
 		if contentStr, ok := message.Content.(string); ok {
 			data["result"] = contentStr
