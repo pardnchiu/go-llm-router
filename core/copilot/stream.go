@@ -21,7 +21,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 	headers["Accept"] = "text/event-stream"
 	headers["Accept-Encoding"] = "identity"
 
-	if a.useResponses() {
+	if a.useResponses(ctx) {
 		body := a.buildResponsesBody(messages, tools, reasoning)
 		body["stream"] = true
 		return a.streamResponses(ctx, headers, body)

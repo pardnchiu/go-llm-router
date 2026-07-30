@@ -29,9 +29,9 @@ func SupportTemperature(providerName, model string) bool {
 func ResponsesAPI(providerName, model string) bool {
 	switch providerName {
 	case "openai":
-		return strings.Contains(model, "codex") || openAIMinorAtLeast(model, 4) || strings.HasSuffix(model, "-pro")
+		return strings.Contains(model, "codex") || openAIVersionAtLeast(model, 5, 4) || strings.HasSuffix(model, "-pro")
 	case "copilot":
-		return strings.Contains(model, "-codex") || openAIMinorAtLeast(model, 4)
+		return strings.Contains(model, "-codex") || openAIVersionAtLeast(model, 5, 4)
 	}
 	return false
 }

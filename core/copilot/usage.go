@@ -37,10 +37,10 @@ func Usage(ctx context.Context, config core.Config) (float64, error) {
 		"Editor-Version": "vscode/1.96.2",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("go_pkg_http.GET: %w", err)
+		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return 0, fmt.Errorf("go_pkg_http.GET: http %d", status)
+		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
 	snap := data.QuotaSnapshots.Chat

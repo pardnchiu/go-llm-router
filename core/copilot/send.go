@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/pardnchiu/go-llm-router/core"
 	copilotResponse "github.com/pardnchiu/go-llm-router/core/copilot/response"
@@ -70,10 +72,48 @@ func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reason
 	return body
 }
 
-func (a *Agent) useResponses() bool {
+func (a *Agent) resolveEndpoints(ctx context.Context) []string {
 	if len(a.endpoints) > 0 {
-		hasChat := slices.Contains(a.endpoints, "/chat/completions")
-		hasResponses := slices.Contains(a.endpoints, "/responses")
+		return a.endpoints
+	}
+
+	a.endpointMu.Lock()
+	defer a.endpointMu.Unlock()
+
+	if a.endpointDone {
+		return a.endpointCache
+	}
+
+	headers, err := a.headers(ctx)
+	if err != nil {
+		return nil
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	data, err := fetchModels(lookupCtx, a.httpClient, headers)
+	if err != nil {
+		// * transient failure: leave unresolved so the next Send retries
+		return nil
+	}
+
+	// * mark resolved even when the model is absent, so every Send does not re-query
+	a.endpointDone = true
+	for _, m := range data.Data {
+		if strings.TrimSpace(m.ID) == a.model {
+			a.endpointCache = m.SupportedEndpoints
+			break
+		}
+	}
+	return a.endpointCache
+}
+
+func (a *Agent) useResponses(ctx context.Context) bool {
+	endpoints := a.resolveEndpoints(ctx)
+	if len(endpoints) > 0 {
+		hasChat := slices.Contains(endpoints, "/chat/completions")
+		hasResponses := slices.Contains(endpoints, "/responses")
 		if hasResponses && !hasChat {
 			return true
 		}
@@ -90,7 +130,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		return nil, 0, err
 	}
 
-	if a.useResponses() {
+	if a.useResponses(ctx) {
 		body := a.buildResponsesBody(messages, tools, reasoning)
 
 		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, headers, body, "json")

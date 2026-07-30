@@ -68,7 +68,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 
 	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, headers, body, "json")
 	if err != nil {
-		return nil, 0, fmt.Errorf("go_pkg_http.POSTStream: %w", err)
+		return nil, 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POSTStream: %w", err)
 	}
 	defer resp.Body.Close()
 

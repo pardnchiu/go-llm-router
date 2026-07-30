@@ -25,10 +25,10 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 		"Authorization": "Bearer " + config.APIKey,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("go_pkg_http.GET: %w", err)
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return nil, fmt.Errorf("go_pkg_http.GET: http %d", status)
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
 	ids := make([]string, 0, len(data.Data))
