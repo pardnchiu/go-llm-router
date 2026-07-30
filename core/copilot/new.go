@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/pardnchiu/go-llm-router/core"
 	oauthCopilot "github.com/pardnchiu/go-llm-router/core/oauth/copilot"
@@ -16,6 +17,10 @@ type Agent struct {
 	Refresh    *core.CopilotRefreshToken
 	efforts    []string
 	endpoints  []string
+
+	endpointMu    sync.Mutex
+	endpointDone  bool
+	endpointCache []string
 }
 
 const (

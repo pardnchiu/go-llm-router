@@ -66,11 +66,11 @@ func OpenAIEffortRange(model string) (low, high Reasoning) {
 	case strings.Contains(model, "-chat-latest"):
 		return ReasoningNone, ReasoningNone
 
-	case strings.Contains(model, "codex"), openAIMinorAtLeast(model, 6):
+	case strings.Contains(model, "codex"), openAIVersionAtLeast(model, 5, 6):
 		low, high = ReasoningNone, ReasoningMax
-	case openAIMinorAtLeast(model, 2):
+	case openAIVersionAtLeast(model, 5, 2):
 		low, high = ReasoningNone, ReasoningXHigh
-	case openAIMinorAtLeast(model, 1):
+	case openAIVersionAtLeast(model, 5, 1):
 		low, high = ReasoningNone, ReasoningHigh
 	case strings.HasPrefix(model, "gpt-5"),
 		strings.HasPrefix(model, "o1"),
@@ -87,23 +87,53 @@ func OpenAIEffortRange(model string) (low, high Reasoning) {
 	return low, high
 }
 
-func openAIMinorAtLeast(model string, minMinor int) bool {
-	rest, ok := strings.CutPrefix(model, "gpt-5.")
+func openAIVersionAtLeast(model string, minMajor, minMinor int) bool {
+	major, minor, ok := openAIVersion(model)
 	if !ok {
 		return false
 	}
-	end := strings.IndexFunc(rest, func(r rune) bool { return r < '0' || r > '9' })
+	if major != minMajor {
+		return major > minMajor
+	}
+	return minor >= minMinor
+}
+
+func openAIVersion(model string) (int, int, bool) {
+	rest, ok := strings.CutPrefix(model, "gpt-")
+	if !ok {
+		return 0, 0, false
+	}
+
+	majorText, minorText, hasMinor := strings.Cut(rest, ".")
+	major, ok := leadingInt(majorText)
+	if !ok {
+		return 0, 0, false
+	}
+	if !hasMinor {
+		return major, 0, true
+	}
+
+	minor, ok := leadingInt(minorText)
+	if !ok {
+		return major, 0, true
+	}
+	return major, minor, true
+}
+
+func leadingInt(text string) (int, bool) {
+	end := strings.IndexFunc(text, func(r rune) bool { return r < '0' || r > '9' })
 	if end == -1 {
-		end = len(rest)
+		end = len(text)
 	}
 	if end == 0 {
-		return false
+		return 0, false
 	}
+
 	n := 0
-	for _, c := range rest[:end] {
+	for _, c := range text[:end] {
 		n = n*10 + int(c-'0')
 	}
-	return n >= minMinor
+	return n, true
 }
 
 type ModelFilter struct {

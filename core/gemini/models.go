@@ -36,10 +36,10 @@ func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter
 	client := &http.Client{Timeout: 10 * time.Second}
 	data, status, err := go_pkg_http.GET[core.GeminiModels](ctx, client, modelsAPI+"?key="+config.APIKey, nil)
 	if err != nil {
-		return nil, fmt.Errorf("go_pkg_http.GET: %w", err)
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return nil, fmt.Errorf("go_pkg_http.GET: http %d", status)
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
 	infos := make([]core.ModelInfo, 0, len(data.Models))

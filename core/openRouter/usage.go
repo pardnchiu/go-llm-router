@@ -30,10 +30,10 @@ func Usage(ctx context.Context, config core.Config) (float64, error) {
 		"Authorization": "Bearer " + config.APIKey,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("go_pkg_http.GET: %w", err)
+		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return 0, fmt.Errorf("go_pkg_http.GET: http %d", status)
+		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
 	return data.Data.TotalCredits - data.Data.TotalUsage, nil

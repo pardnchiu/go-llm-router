@@ -31,10 +31,10 @@ func Usage(ctx context.Context, config core.Config) (float64, error) {
 		"Authorization": "Bearer " + config.APIKey,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("go_pkg_http.GET: %w", err)
+		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return 0, fmt.Errorf("go_pkg_http.GET: http %d", status)
+		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 	if len(data.BalanceInfos) == 0 {
 		return 0, fmt.Errorf("no balance_infos returned")

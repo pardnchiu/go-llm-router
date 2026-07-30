@@ -28,21 +28,29 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 	return ids, nil
 }
 
+func fetchModels(ctx context.Context, client *http.Client, headers map[string]string) (core.CopilotModels, error) {
+	data, status, err := go_pkg_http.GET[core.CopilotModels](ctx, client, modelsAPI, headers)
+	if err != nil {
+		return core.CopilotModels{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
+	}
+	if status != http.StatusOK {
+		return core.CopilotModels{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
+	}
+	return data, nil
+}
+
 func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter) ([]core.ModelInfo, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[core.CopilotModels](ctx, client, modelsAPI, map[string]string{
+	data, err := fetchModels(ctx, client, map[string]string{
 		"Authorization":  "Bearer " + config.APIKey,
 		"Editor-Version": "vscode/1.95.0",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("go_pkg_http.GET: %w", err)
-	}
-	if status != http.StatusOK {
-		return nil, fmt.Errorf("go_pkg_http.GET: http %d", status)
+		return nil, err
 	}
 
 	infos := make([]core.ModelInfo, 0, len(data.Data))
