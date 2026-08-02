@@ -43,10 +43,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		body["service_tier"] = "priority"
 	}
 	result, code, err := go_pkg_http.POST[orOutput](ctx, a.httpClient, chatAPI, map[string]string{
-		"Authorization": "Bearer " + a.apiKey,
-		"Content-Type":  "application/json",
-		"HTTP-Referer":  "https://github.com/pardnchiu/agenvoy",
-		"X-Title":       "Agenvoy",
+		"Authorization":      "Bearer " + a.apiKey,
+		"Content-Type":       "application/json",
+		"HTTP-Referer":       "https://agenvoy.com",
+		"X-OpenRouter-Title": "Agenvoy",
 	}, body, "json")
 	if err != nil {
 		return nil, code, err
