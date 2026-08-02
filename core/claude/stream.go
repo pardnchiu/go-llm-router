@@ -13,18 +13,16 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (<-chan core.StreamEvent, error) {
+func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (<-chan core.StreamEvent, error) {
 	requestBody := a.buildRequestBody(messages, tools, reasoning)
 	requestBody["stream"] = true
 
-	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, messagesAPI, map[string]string{
-		"x-api-key":         a.apiKey,
-		"anthropic-version": "2023-06-01",
-		"anthropic-beta":    "prompt-caching-2024-07-31",
-		"Content-Type":      "application/json",
-		"Accept":            "text/event-stream",
-		"Accept-Encoding":   "identity",
-	}, requestBody, "json")
+	fast := a.applyMode(requestBody, mode)
+	headers := a.headers(fast)
+	headers["Accept"] = "text/event-stream"
+	headers["Accept-Encoding"] = "identity"
+
+	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, messagesAPI, headers, requestBody, "json")
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +52,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 			case strings.HasPrefix(line, "data:"):
 				data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 				if data != "" {
-					if !handleClaudeSSE(eventName, data, blockTypes, &usage, events) {
+					if !a.handleClaudeSSE(eventName, data, blockTypes, &usage, events, fast) {
 						return
 					}
 				}
@@ -72,7 +70,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 	return events, nil
 }
 
-func handleClaudeSSE(eventName, data string, blockTypes map[int]string, usage *core.Usage, events chan<- core.StreamEvent) bool {
+func (a *Agent) handleClaudeSSE(eventName, data string, blockTypes map[int]string, usage *core.Usage, events chan<- core.StreamEvent, fast bool) bool {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(data), &evt); err != nil {
 		events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("claude stream decode: %w", err)}
@@ -87,6 +85,9 @@ func handleClaudeSSE(eventName, data string, blockTypes map[int]string, usage *c
 		usage.Input = evt.Message.Usage.InputTokens
 		usage.CacheCreate = evt.Message.Usage.CacheCreationInputTokens
 		usage.CacheRead = evt.Message.Usage.CacheReadInputTokens
+		if fast {
+			core.WarnFastDowngrade("claude", a.model, evt.Message.Usage.Speed)
+		}
 
 	case "content_block_start":
 		blockTypes[evt.Index] = evt.ContentBlock.Type

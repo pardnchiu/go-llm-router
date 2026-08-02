@@ -13,7 +13,7 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (<-chan core.StreamEvent, error) {
+func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (<-chan core.StreamEvent, error) {
 	headers, err := a.headers(ctx)
 	if err != nil {
 		return nil, err

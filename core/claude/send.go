@@ -56,20 +56,40 @@ func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, rea
 	return requestBody
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
-	requestBody := a.buildRequestBody(messages, tools, reasoning)
+func (a *Agent) applyMode(body map[string]any, mode core.Mode) bool {
+	if mode != core.ModeFast || !core.SupportFast("claude", a.model) {
+		return false
+	}
+	body["speed"] = "fast"
+	return true
+}
 
-	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, messagesAPI, map[string]string{
+func (a *Agent) headers(fast bool) map[string]string {
+	beta := "prompt-caching-2024-07-31"
+	if fast {
+		beta += ",fast-mode-2026-02-01"
+	}
+	return map[string]string{
 		"x-api-key":         a.apiKey,
 		"anthropic-version": "2023-06-01",
-		"anthropic-beta":    "prompt-caching-2024-07-31",
+		"anthropic-beta":    beta,
 		"Content-Type":      "application/json",
-	}, requestBody, "json")
+	}
+}
+
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+	requestBody := a.buildRequestBody(messages, tools, reasoning)
+	fast := a.applyMode(requestBody, mode)
+
+	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, messagesAPI, a.headers(fast), requestBody, "json")
 	if err != nil {
 		return nil, code, err
 	}
 	if result.Error != nil {
 		return nil, code, fmt.Errorf("%s", result.Error.Message)
+	}
+	if fast {
+		core.WarnFastDowngrade("claude", a.model, result.Usage.Speed)
 	}
 	out, err := a.convertToOutput(&result)
 	if err != nil {

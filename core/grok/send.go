@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://api.x.ai/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
@@ -40,6 +40,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning_effort"] = effort
 	}
+	fast := mode == core.ModeFast && core.SupportFast("grok", a.model)
+	if fast {
+		body["service_tier"] = "priority"
+	}
 
 	out, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, map[string]string{
 		"Authorization": "Bearer " + a.apiKey,
@@ -50,6 +54,9 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	}
 	if out.Error != nil {
 		return nil, code, fmt.Errorf("%s", out.Error.Message)
+	}
+	if fast {
+		core.WarnFastDowngrade("grok", a.model, out.ServiceTier)
 	}
 	return &out, code, nil
 }

@@ -14,11 +14,12 @@ const (
 	responsesAPI = "https://api.openai.com/v1/responses"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	headers := map[string]string{
 		"Authorization": "Bearer " + a.apiKey,
 		"Content-Type":  "application/json",
 	}
+	fast := mode == core.ModeFast && core.SupportFast("openai", a.model)
 
 	if core.ResponsesAPI("openai", a.model) {
 		var instructions string
@@ -46,6 +47,9 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		if effort, ok := a.effort(reasoning); ok {
 			body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
 		}
+		if fast {
+			body["service_tier"] = "fast"
+		}
 
 		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, headers, body, "json")
 		if err != nil {
@@ -53,6 +57,9 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		}
 		if result.Error != nil {
 			return nil, code, fmt.Errorf("%s", result.Error.Message)
+		}
+		if fast {
+			core.WarnFastDowngrade("openai", a.model, result.ServiceTier)
 		}
 
 		out := copilotResponse.ConvertOutput(result)
@@ -70,12 +77,18 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning_effort"] = effort
 	}
+	if fast {
+		body["service_tier"] = "fast"
+	}
 	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
 	if err != nil {
 		return nil, code, err
 	}
 	if result.Error != nil {
 		return nil, code, fmt.Errorf("http.POST: %s", result.Error.Message)
+	}
+	if fast {
+		core.WarnFastDowngrade("openai", a.model, result.ServiceTier)
 	}
 
 	return &result, code, nil

@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://openrouter.ai/api/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	var merged []core.Message
 	var systemParts []string
 	for _, m := range messages {
@@ -38,6 +38,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning"] = map[string]any{"effort": effort}
 	}
+	fast := mode == core.ModeFast && core.SupportFast("openrouter", a.model)
+	if fast {
+		body["service_tier"] = "priority"
+	}
 	result, code, err := go_pkg_http.POST[orOutput](ctx, a.httpClient, chatAPI, map[string]string{
 		"Authorization": "Bearer " + a.apiKey,
 		"Content-Type":  "application/json",
@@ -49,6 +53,9 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	}
 	if result.Error != nil {
 		return nil, code, fmt.Errorf("%s", result.Error.Message)
+	}
+	if fast {
+		core.WarnFastDowngrade("openrouter", a.model, result.ServiceTier)
 	}
 
 	out := result.toOutput()
@@ -70,8 +77,9 @@ type orOutput struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage core.Usage `json:"usage"`
-	Error *struct {
+	Usage       core.Usage `json:"usage"`
+	ServiceTier string     `json:"service_tier"`
+	Error       *struct {
 		Message string `json:"message"`
 	} `json:"error"`
 }

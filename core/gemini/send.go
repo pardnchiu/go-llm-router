@@ -14,7 +14,7 @@ const (
 	baseAPI = "https://generativelanguage.googleapis.com/v1beta/models/"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	messages = rewriteSyntheticActivations(messages)
 
 	var systemParts []string

@@ -8,7 +8,7 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	chatAPI := a.baseURL + "/chat/completions"
 
 	headers := map[string]string{
