@@ -8,11 +8,11 @@ import (
 
 type Agent interface {
 	Name() string
-	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning) (*Output, int, error)
+	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning, mode Mode) (*Output, int, error)
 }
 
 type StreamAgent interface {
-	SendStream(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning) (<-chan StreamEvent, error)
+	SendStream(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning, mode Mode) (<-chan StreamEvent, error)
 }
 
 type StreamEventType string
@@ -179,9 +179,10 @@ type ToolCall struct {
 }
 
 type Output struct {
-	Choices []OutputChoices `json:"choices"`
-	Usage   Usage           `json:"usage"`
-	Error   *struct {
+	Choices     []OutputChoices `json:"choices"`
+	Usage       Usage           `json:"usage"`
+	ServiceTier string          `json:"service_tier,omitempty"`
+	Error       *struct {
 		Message string      `json:"message"`
 		Type    string      `json:"type"`
 		Code    json.Number `json:"code"`

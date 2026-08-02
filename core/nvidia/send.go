@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	// * do not support mutiple system prompt, merge to one
 	var merged []core.Message
 	var systemParts []string

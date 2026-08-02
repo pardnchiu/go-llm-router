@@ -22,7 +22,7 @@ const (
 	promptCacheKeyLen = 24
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("a.authHeader: %w", err)

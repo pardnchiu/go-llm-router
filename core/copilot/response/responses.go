@@ -32,7 +32,8 @@ type Output struct {
 			CachedTokens int `json:"cached_tokens"`
 		} `json:"input_tokens_details"`
 	} `json:"usage"`
-	Error *struct {
+	ServiceTier string `json:"service_tier,omitempty"`
+	Error       *struct {
 		Message string `json:"message"`
 		Type    string `json:"type"`
 	} `json:"error,omitempty"`
@@ -187,5 +188,6 @@ func ConvertOutput(r Output) core.Output {
 			Output:    r.Usage.OutputTokens,
 			CacheRead: r.Usage.InputTokensDetails.CachedTokens,
 		},
+		ServiceTier: r.ServiceTier,
 	}
 }

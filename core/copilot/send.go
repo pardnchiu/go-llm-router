@@ -124,7 +124,7 @@ func (a *Agent) useResponses(ctx context.Context) bool {
 	return core.ResponsesAPI("copilot", a.model)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	headers, err := a.headers(ctx)
 	if err != nil {
 		return nil, 0, err

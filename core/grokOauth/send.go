@@ -16,7 +16,7 @@ import (
 
 const responsesAPI = "https://api.x.ai/v1/responses"
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
@@ -48,6 +48,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning"] = map[string]any{"effort": effort}
 	}
+	fast := mode == core.ModeFast && core.SupportFast("grok", a.model)
+	if fast {
+		body["service_tier"] = "priority"
+	}
 
 	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, map[string]string{
 		"Authorization": auth,
@@ -66,6 +70,9 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	out, err := parseSSEStream(resp)
 	if err != nil {
 		return nil, resp.StatusCode, err
+	}
+	if fast {
+		core.WarnFastDowngrade("grok-oauth", a.model, out.ServiceTier)
 	}
 	return out, resp.StatusCode, nil
 }
@@ -101,6 +108,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		reasonBuf     strings.Builder
 		toolCalls     []core.ToolCall
 		usage         core.Usage
+		serviceTier   string
 		argsBuf       = map[string]*strings.Builder{}
 		pending       []pendingCall
 	)
@@ -203,6 +211,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 
 		case "response.completed", "response.incomplete":
 			if ev.Response != nil {
+				serviceTier = ev.Response.ServiceTier
 				usage = core.Usage{
 					Input:     ev.Response.Usage.InputTokens - ev.Response.Usage.InputTokensDetails.CachedTokens,
 					Output:    ev.Response.Usage.OutputTokens,
@@ -268,6 +277,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		Choices: []core.OutputChoices{
 			{Message: msg, FinishReason: finishReason},
 		},
-		Usage: usage,
+		Usage:       usage,
+		ServiceTier: serviceTier,
 	}, nil
 }
