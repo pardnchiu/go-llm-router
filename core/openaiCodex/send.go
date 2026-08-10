@@ -22,12 +22,23 @@ const (
 	promptCacheKeyLen = 24
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
+		return nil, fmt.Errorf("a.authHeader: %w", err)
 	}
 
+	headers := map[string]string{
+		"Authorization": auth,
+		"Content-Type":  "application/json",
+	}
+	if a.token != nil && a.token.AccountID != "" {
+		headers["ChatGPT-Account-Id"] = a.token.AccountID
+	}
+	return headers, nil
+}
+
+func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	var instructions string
 	var nonSystem []core.Message
 	for _, m := range messages {
@@ -57,16 +68,16 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if key := promptCacheKey(instructions); key != "" {
 		body["prompt_cache_key"] = key
 	}
+	return body
+}
 
-	headers := map[string]string{
-		"Authorization": auth,
-		"Content-Type":  "application/json",
-	}
-	if a.token != nil && a.token.AccountID != "" {
-		headers["ChatGPT-Account-Id"] = a.token.AccountID
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+	headers, err := a.headers(ctx)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, headers, body, "json")
+	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning), "json")
 	if err != nil {
 		return nil, 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POSTStream: %w", err)
 	}

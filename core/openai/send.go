@@ -48,7 +48,7 @@ func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, r
 		body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
 	}
 	if fast {
-		body["service_tier"] = "fast"
+		body["service_tier"] = "priority"
 	}
 	return body
 }
@@ -66,7 +66,7 @@ func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reason
 		body["reasoning_effort"] = effort
 	}
 	if fast {
-		body["service_tier"] = "fast"
+		body["service_tier"] = "priority"
 	}
 	return body
 }

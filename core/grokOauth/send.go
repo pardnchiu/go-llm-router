@@ -16,12 +16,18 @@ import (
 
 const responsesAPI = "https://api.x.ai/v1/responses"
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("a.authHeader: %w", err)
+		return nil, fmt.Errorf("a.authHeader: %w", err)
 	}
+	return map[string]string{
+		"Authorization": auth,
+		"Content-Type":  "application/json",
+	}, nil
+}
 
+func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning, fast bool) map[string]any {
 	var instructions string
 	var nonSystem []core.Message
 	for _, m := range messages {
@@ -48,15 +54,20 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning"] = map[string]any{"effort": effort}
 	}
-	fast := mode == core.ModeFast && core.SupportFast("grok", a.model)
 	if fast {
 		body["service_tier"] = "priority"
 	}
+	return body
+}
 
-	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, map[string]string{
-		"Authorization": auth,
-		"Content-Type":  "application/json",
-	}, body, "json")
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+	headers, err := a.headers(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	fast := mode == core.ModeFast && core.SupportFast("grok", a.model)
+
+	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning, fast), "json")
 	if err != nil {
 		return nil, 0, fmt.Errorf("go_pkg_http.POSTStream: %w", err)
 	}
