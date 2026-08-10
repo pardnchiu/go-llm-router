@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 )
 
 const streamBodyLimit = 64 << 20
+
+var ErrStreamUnsupported = errors.New("upstream does not support streaming")
 
 func OpenStream(ctx context.Context, client *http.Client, url string, headers map[string]string, body map[string]any, label string) (*http.Response, int, error) {
 	headers["Accept"] = "text/event-stream"
@@ -26,6 +29,10 @@ func OpenStream(ctx context.Context, client *http.Client, url string, headers ma
 		defer resp.Body.Close()
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 		return nil, resp.StatusCode, fmt.Errorf("%s stream: http %d: %s", label, resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "text/event-stream") {
+		defer resp.Body.Close()
+		return nil, resp.StatusCode, fmt.Errorf("%s stream: got Content-Type %q: %w", label, ct, ErrStreamUnsupported)
 	}
 	return resp, resp.StatusCode, nil
 }

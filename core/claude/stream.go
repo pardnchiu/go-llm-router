@@ -37,7 +37,6 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 		defer resp.Body.Close()
 		defer close(events)
 
-		blockTypes := map[int]string{}
 		usage := core.Usage{}
 
 		reader := bufio.NewReader(io.LimitReader(resp.Body, 64<<20))
@@ -52,7 +51,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 			case strings.HasPrefix(line, "data:"):
 				data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 				if data != "" {
-					if !a.handleClaudeSSE(eventName, data, blockTypes, &usage, events, fast) {
+					if !a.handleClaudeSSE(eventName, data, &usage, events, fast) {
 						return
 					}
 				}
@@ -70,7 +69,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 	return events, nil
 }
 
-func (a *Agent) handleClaudeSSE(eventName, data string, blockTypes map[int]string, usage *core.Usage, events chan<- core.StreamEvent, fast bool) bool {
+func (a *Agent) handleClaudeSSE(eventName, data string, usage *core.Usage, events chan<- core.StreamEvent, fast bool) bool {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(data), &evt); err != nil {
 		events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("claude stream decode: %w", err)}
@@ -90,7 +89,6 @@ func (a *Agent) handleClaudeSSE(eventName, data string, blockTypes map[int]strin
 		}
 
 	case "content_block_start":
-		blockTypes[evt.Index] = evt.ContentBlock.Type
 		if evt.ContentBlock.Type == "tool_use" {
 			events <- core.StreamEvent{
 				Type: core.StreamEventToolCall,
@@ -103,12 +101,12 @@ func (a *Agent) handleClaudeSSE(eventName, data string, blockTypes map[int]strin
 		}
 
 	case "content_block_delta":
-		switch blockTypes[evt.Index] {
-		case "text":
+		switch evt.Delta.Type {
+		case "text_delta":
 			events <- core.StreamEvent{Type: core.StreamEventText, TextDelta: evt.Delta.Text}
-		case "thinking":
+		case "thinking_delta":
 			events <- core.StreamEvent{Type: core.StreamEventReasoning, ReasoningDelta: evt.Delta.Thinking}
-		case "tool_use":
+		case "input_json_delta":
 			events <- core.StreamEvent{
 				Type: core.StreamEventToolCall,
 				ToolCall: &core.ToolCallDelta{

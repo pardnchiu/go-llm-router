@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/pardnchiu/go-llm-router/core"
 )
 
 type ImageOptions struct {
@@ -97,39 +99,43 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts ImageOpti
 		return "", "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
-	// * SSE data lines carry full base64 PNG; 1024x1024 high quality ~6 MiB, leave headroom
-	scanner.Buffer(make([]byte, 1<<20), 32<<20)
+	var result, revised string
+	var streamErr error
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
+	readErr := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, 64<<20)), func(_, data string) bool {
+		if strings.TrimSpace(data) == "[DONE]" {
+			return false
 		}
 
 		var ev imageSSEEvent
 		if err := json.Unmarshal([]byte(data), &ev); err != nil {
-			continue
+			return true
 		}
 
 		if ev.Error != nil {
-			return "", "", fmt.Errorf("upstream %s: %s", ev.Error.Code, ev.Error.Message)
+			streamErr = fmt.Errorf("upstream %s: %s", ev.Error.Code, ev.Error.Message)
+			return false
 		}
 
 		if ev.Type == "response.output_item.done" && ev.Item != nil && ev.Item.Type == "image_generation_call" {
 			if ev.Item.Result == "" {
-				return "", "", fmt.Errorf("image_generation_call missing result")
+				streamErr = fmt.Errorf("image_generation_call missing result")
+				return false
 			}
-			return ev.Item.Result, ev.Item.RevisedPrompt, nil
+			result, revised = ev.Item.Result, ev.Item.RevisedPrompt
+			return false
 		}
-	}
+		return true
+	})
 
-	if err := scanner.Err(); err != nil {
-		return "", "", fmt.Errorf("scanner: %w", err)
+	if readErr != nil {
+		return "", "", fmt.Errorf("image stream read: %w", readErr)
 	}
-	return "", "", fmt.Errorf("no image_generation_call event in response")
+	if streamErr != nil {
+		return "", "", streamErr
+	}
+	if result == "" {
+		return "", "", fmt.Errorf("no image_generation_call event in response")
+	}
+	return result, revised, nil
 }

@@ -143,21 +143,15 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		return b
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 1<<20), 1<<20)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
+	var streamErr error
+	handle := func(_, data string) bool {
+		if strings.TrimSpace(data) == "[DONE]" {
+			return false
 		}
 
 		var ev sseEvent
 		if err := json.Unmarshal([]byte(data), &ev); err != nil {
-			continue
+			return true
 		}
 		if ev.Type == "response.output_item.done" && ev.Item != nil && ev.Item.Type == "reasoning" {
 			for _, s := range ev.Item.Summary {
@@ -231,7 +225,8 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 			if msg == "" {
 				msg = ev.Type
 			}
-			return nil, fmt.Errorf("codex stream: %s", msg)
+			streamErr = fmt.Errorf("codex stream: %s", msg)
+			return false
 
 		case "response.completed", "response.incomplete":
 			if ev.Response != nil {
@@ -251,10 +246,14 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 				}
 			}
 		}
+		return true
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scanner: %w", err)
+	if err := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, 64<<20)), handle); err != nil {
+		return nil, fmt.Errorf("codex stream read: %w", err)
+	}
+	if streamErr != nil {
+		return nil, streamErr
 	}
 
 	for _, p := range pending {
