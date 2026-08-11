@@ -13,7 +13,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 	body["stream"] = true
 	body["stream_options"] = map[string]any{"include_usage": true}
 
-	resp, _, err := core.OpenStream(ctx, a.httpClient, a.chatAPI(), a.headers(), body, label)
+	resp, err := core.OpenStream(ctx, a.httpClient, a.chatAPI(), a.headers(), body, label)
 	if err != nil {
 		return nil, err
 	}

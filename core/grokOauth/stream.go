@@ -15,7 +15,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 	}
 	fast := mode == core.ModeFast && core.SupportFast("grok", a.model)
 
-	resp, _, err := core.OpenStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning, fast), label)
+	resp, err := core.OpenStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning, fast), label)
 	if err != nil {
 		return nil, err
 	}

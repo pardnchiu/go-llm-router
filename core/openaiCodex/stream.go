@@ -14,7 +14,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 		return nil, err
 	}
 
-	resp, _, err := core.OpenStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning), label)
+	resp, err := core.OpenStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning), label)
 	if err != nil {
 		return nil, err
 	}

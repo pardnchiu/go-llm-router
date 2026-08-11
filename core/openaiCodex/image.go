@@ -95,14 +95,14 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts ImageOpti
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, core.ErrorBodyLimit))
 		return "", "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 
 	var result, revised string
 	var streamErr error
 
-	readErr := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, 64<<20)), func(_, data string) bool {
+	readErr := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, core.StreamBodyLimit)), func(_, data string) bool {
 		if strings.TrimSpace(data) == "[DONE]" {
 			return false
 		}

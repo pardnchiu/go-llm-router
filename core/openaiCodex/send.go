@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -84,8 +85,12 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return nil, resp.StatusCode, fmt.Errorf("%s", strings.TrimSpace(string(raw)))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, core.ErrorBodyLimit))
+		return nil, resp.StatusCode, &core.StreamError{
+			Provider: label,
+			Code:     resp.StatusCode,
+			Body:     strings.TrimSpace(string(raw)),
+		}
 	}
 
 	out, err := parseSSEStream(resp)
@@ -104,13 +109,11 @@ func promptCacheKey(instructions string) string {
 }
 
 type sseEvent struct {
-	Type        string `json:"type"`
-	Delta       string `json:"delta"`
-	ItemID      string `json:"item_id"`
-	OutputIndex int    `json:"output_index"`
-	Arguments   string `json:"arguments"`
-	Message     string `json:"message"`
-	Item        *struct {
+	Type      string `json:"type"`
+	Delta     string `json:"delta"`
+	ItemID    string `json:"item_id"`
+	Arguments string `json:"arguments"`
+	Item      *struct {
 		ID        string `json:"id"`
 		Type      string `json:"type"`
 		CallID    string `json:"call_id"`
@@ -162,6 +165,8 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 
 		var ev sseEvent
 		if err := json.Unmarshal([]byte(data), &ev); err != nil {
+			slog.Debug("dropped undecodable SSE frame",
+				slog.String("provider", label), slog.String("err", err.Error()))
 			return true
 		}
 		if ev.Type == "response.output_item.done" && ev.Item != nil && ev.Item.Type == "reasoning" {
@@ -229,14 +234,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 			}
 
 		case "response.failed", "error":
-			msg := ev.Message
-			if ev.Response != nil && ev.Response.Error != nil {
-				msg = ev.Response.Error.Message
-			}
-			if msg == "" {
-				msg = ev.Type
-			}
-			streamErr = fmt.Errorf("codex stream: %s", msg)
+			streamErr = core.ResponsesStreamError(label, data)
 			return false
 
 		case "response.completed", "response.incomplete":
@@ -260,7 +258,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		return true
 	}
 
-	if err := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, 64<<20)), handle); err != nil {
+	if err := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, core.StreamBodyLimit)), handle); err != nil {
 		return nil, fmt.Errorf("codex stream read: %w", err)
 	}
 	if streamErr != nil {

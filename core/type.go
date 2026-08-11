@@ -27,10 +27,11 @@ const (
 )
 
 type ToolCallDelta struct {
-	Index     int
-	ID        string
-	Name      string
-	Arguments string
+	Index            int
+	ID               string
+	Name             string
+	Arguments        string
+	ThoughtSignature string
 }
 
 type StreamEvent struct {

@@ -60,7 +60,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		return nil, code, err
 	}
 	if result.Error != nil {
-		return nil, code, fmt.Errorf("%s", result.Error.Message)
+		return nil, code, fmt.Errorf("%s: %s", label, result.Error.Message)
 	}
 	if fast {
 		core.WarnFastDowngrade("openrouter", a.model, result.ServiceTier)

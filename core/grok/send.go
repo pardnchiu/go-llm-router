@@ -61,7 +61,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		return nil, code, err
 	}
 	if out.Error != nil {
-		return nil, code, fmt.Errorf("%s", out.Error.Message)
+		return nil, code, fmt.Errorf("%s: %s", label, out.Error.Message)
 	}
 	if fast {
 		core.WarnFastDowngrade("grok", a.model, out.ServiceTier)

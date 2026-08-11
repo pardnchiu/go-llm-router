@@ -6,30 +6,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"strings"
 
 	"github.com/pardnchiu/go-llm-router/core"
-	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
+
+const label = "claude"
 
 func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (<-chan core.StreamEvent, error) {
 	requestBody := a.buildRequestBody(messages, tools, reasoning)
 	requestBody["stream"] = true
 
 	fast := a.applyMode(requestBody, mode)
-	headers := a.headers(fast)
-	headers["Accept"] = "text/event-stream"
-	headers["Accept-Encoding"] = "identity"
 
-	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, messagesAPI, headers, requestBody, "json")
+	resp, err := core.OpenStream(ctx, a.httpClient, messagesAPI, a.headers(fast), requestBody, label)
 	if err != nil {
 		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return nil, fmt.Errorf("claude stream: http %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 
 	events := make(chan core.StreamEvent)
@@ -39,30 +30,12 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 
 		usage := core.Usage{}
 
-		reader := bufio.NewReader(io.LimitReader(resp.Body, 64<<20))
-		var eventName string
-		for {
-			line, readErr := reader.ReadString('\n')
-			line = strings.TrimRight(line, "\r\n")
-
-			switch {
-			case strings.HasPrefix(line, "event:"):
-				eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-			case strings.HasPrefix(line, "data:"):
-				data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-				if data != "" {
-					if !a.handleClaudeSSE(eventName, data, &usage, events, fast) {
-						return
-					}
-				}
-			}
-
-			if readErr != nil {
-				if readErr != io.EOF {
-					events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("claude stream read: %w", readErr)}
-				}
-				return
-			}
+		reader := bufio.NewReader(io.LimitReader(resp.Body, core.StreamBodyLimit))
+		readErr := core.ScanSSE(reader, func(eventName, data string) bool {
+			return a.handleClaudeSSE(eventName, data, &usage, events, fast)
+		})
+		if readErr != nil {
+			events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("%s stream read: %w", label, readErr)}
 		}
 	}()
 
@@ -72,7 +45,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []core.Message, tools [
 func (a *Agent) handleClaudeSSE(eventName, data string, usage *core.Usage, events chan<- core.StreamEvent, fast bool) bool {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(data), &evt); err != nil {
-		events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("claude stream decode: %w", err)}
+		events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, core.TruncateFrame(data))}
 		return false
 	}
 	if eventName == "" {
@@ -124,7 +97,14 @@ func (a *Agent) handleClaudeSSE(eventName, data string, usage *core.Usage, event
 		}
 
 	case "error":
-		events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("%s", evt.Error.Message)}
+		msg := evt.Error.Message
+		if msg == "" {
+			msg = evt.Error.Type
+		}
+		if msg == "" {
+			msg = core.TruncateFrame(data)
+		}
+		events <- core.StreamEvent{Type: core.StreamEventError, Err: fmt.Errorf("%s stream: %s", label, msg)}
 		return false
 
 	case "message_stop":

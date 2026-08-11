@@ -13,28 +13,70 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-const streamBodyLimit = 64 << 20
+const (
+	StreamBodyLimit = 64 << 20
+	ErrorBodyLimit  = 8 << 10
+	ErrorFrameLimit = 512
+	JSONBodyLimit   = 64 << 10
+)
 
 var ErrStreamUnsupported = errors.New("upstream does not support streaming")
 
-func OpenStream(ctx context.Context, client *http.Client, url string, headers map[string]string, body map[string]any, label string) (*http.Response, int, error) {
+type StreamError struct {
+	Provider string
+	Code     int
+	Body     string
+	Err      error
+}
+
+func (e *StreamError) Error() string {
+	parts := make([]string, 0, 3)
+	if e.Code != 0 {
+		parts = append(parts, fmt.Sprintf("http %d", e.Code))
+	}
+	if e.Err != nil {
+		parts = append(parts, e.Err.Error())
+	}
+	if e.Body != "" {
+		parts = append(parts, e.Body)
+	}
+	if len(parts) == 0 {
+		return e.Provider + " stream: failed"
+	}
+	return e.Provider + " stream: " + strings.Join(parts, ": ")
+}
+
+func (e *StreamError) Unwrap() error { return e.Err }
+
+func OpenStream(ctx context.Context, client *http.Client, url string, headers map[string]string, body map[string]any, label string) (*http.Response, error) {
 	headers["Accept"] = "text/event-stream"
 	headers["Accept-Encoding"] = "identity"
 
 	resp, err := go_pkg_http.POSTStream(ctx, client, url, headers, body, "json")
 	if err != nil {
-		return nil, 0, fmt.Errorf("%s stream: %w", label, err)
+		return nil, &StreamError{Provider: label, Err: err}
 	}
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return nil, resp.StatusCode, fmt.Errorf("%s stream: http %d: %s", label, resp.StatusCode, strings.TrimSpace(string(raw)))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, ErrorBodyLimit))
+		return nil, &StreamError{
+			Provider: label,
+			Code:     resp.StatusCode,
+			Body:     strings.TrimSpace(string(raw)),
+		}
 	}
+
 	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "text/event-stream") {
 		defer resp.Body.Close()
-		return nil, resp.StatusCode, fmt.Errorf("%s stream: got Content-Type %q: %w", label, ct, ErrStreamUnsupported)
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, ErrorBodyLimit))
+		return nil, &StreamError{
+			Provider: label,
+			Code:     resp.StatusCode,
+			Body:     strings.TrimSpace(string(raw)),
+			Err:      fmt.Errorf("got Content-Type %q: %w", ct, ErrStreamUnsupported),
+		}
 	}
-	return resp, resp.StatusCode, nil
+	return resp, nil
 }
 
 type chatChunk struct {
@@ -67,7 +109,7 @@ func StreamChat(resp *http.Response, label string) <-chan StreamEvent {
 		defer resp.Body.Close()
 		defer close(events)
 
-		reader := bufio.NewReader(io.LimitReader(resp.Body, streamBodyLimit))
+		reader := bufio.NewReader(io.LimitReader(resp.Body, StreamBodyLimit))
 		readErr := ScanSSE(reader, func(_, data string) bool {
 			if strings.TrimSpace(data) == "[DONE]" {
 				return false
@@ -85,11 +127,15 @@ func StreamChat(resp *http.Response, label string) <-chan StreamEvent {
 func handleChatChunk(data, label string, events chan<- StreamEvent) bool {
 	var c chatChunk
 	if err := json.Unmarshal([]byte(data), &c); err != nil {
-		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream decode: %w", label, err)}
+		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, TruncateFrame(data))}
 		return false
 	}
 	if c.Error != nil {
-		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s", c.Error.Message)}
+		msg := c.Error.Message
+		if msg == "" {
+			msg = TruncateFrame(data)
+		}
+		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream: %s", label, msg)}
 		return false
 	}
 
@@ -98,7 +144,12 @@ func handleChatChunk(data, label string, events chan<- StreamEvent) bool {
 		if choice.Delta.Content != "" {
 			events <- StreamEvent{Type: StreamEventText, TextDelta: choice.Delta.Content}
 		}
-		if reasoning := choice.Delta.ReasoningContent + choice.Delta.Reasoning; reasoning != "" {
+
+		reasoning := choice.Delta.ReasoningContent
+		if reasoning == "" {
+			reasoning = choice.Delta.Reasoning
+		}
+		if reasoning != "" {
 			events <- StreamEvent{Type: StreamEventReasoning, ReasoningDelta: reasoning}
 		}
 		for _, tc := range choice.Delta.ToolCalls {
@@ -131,7 +182,6 @@ type responsesEvent struct {
 	Type        string `json:"type"`
 	Delta       string `json:"delta"`
 	OutputIndex int    `json:"output_index"`
-	Message     string `json:"message"`
 	Item        *struct {
 		Type      string `json:"type"`
 		CallID    string `json:"call_id"`
@@ -150,10 +200,74 @@ type responsesEvent struct {
 				CachedTokens int `json:"cached_tokens"`
 			} `json:"input_tokens_details"`
 		} `json:"usage"`
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error"`
 	} `json:"response"`
+}
+
+type responsesErrorFrame struct {
+	Message string          `json:"message"`
+	Code    json.RawMessage `json:"code"`
+	Error   *struct {
+		Message string          `json:"message"`
+		Type    string          `json:"type"`
+		Code    json.RawMessage `json:"code"`
+	} `json:"error"`
+	Response *struct {
+		Error *struct {
+			Message string          `json:"message"`
+			Code    json.RawMessage `json:"code"`
+		} `json:"error"`
+		IncompleteDetails *struct {
+			Reason string `json:"reason"`
+		} `json:"incomplete_details"`
+	} `json:"response"`
+}
+
+func ResponsesStreamError(label, data string) error {
+	var f responsesErrorFrame
+	if err := json.Unmarshal([]byte(data), &f); err != nil {
+		return fmt.Errorf("%s stream: unparseable error frame: %s", label, TruncateFrame(data))
+	}
+
+	var msg, code string
+	switch {
+	case f.Error != nil && f.Error.Message != "":
+		msg, code = f.Error.Message, rawString(f.Error.Code)
+	case f.Error != nil && f.Error.Type != "":
+		msg, code = f.Error.Type, rawString(f.Error.Code)
+	case f.Message != "":
+		msg, code = f.Message, rawString(f.Code)
+	case f.Response != nil && f.Response.Error != nil && f.Response.Error.Message != "":
+		msg, code = f.Response.Error.Message, rawString(f.Response.Error.Code)
+	case f.Response != nil && f.Response.IncompleteDetails != nil && f.Response.IncompleteDetails.Reason != "":
+		msg = "incomplete: " + f.Response.IncompleteDetails.Reason
+	default:
+		return fmt.Errorf("%s stream: %s", label, TruncateFrame(data))
+	}
+
+	msg = TruncateFrame(msg)
+	if code != "" {
+		return fmt.Errorf("%s stream: %s (%s)", label, msg, code)
+	}
+	return fmt.Errorf("%s stream: %s", label, msg)
+}
+
+func rawString(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+func TruncateFrame(data string) string {
+	out := strings.Join(strings.Fields(data), " ")
+	if len(out) > ErrorFrameLimit {
+		return out[:ErrorFrameLimit] + "…"
+	}
+	return out
 }
 
 type responsesState struct {
@@ -169,7 +283,7 @@ func StreamResponses(resp *http.Response, label string) <-chan StreamEvent {
 		defer close(events)
 
 		state := responsesState{}
-		reader := bufio.NewReader(io.LimitReader(resp.Body, streamBodyLimit))
+		reader := bufio.NewReader(io.LimitReader(resp.Body, StreamBodyLimit))
 		readErr := ScanSSE(reader, func(_, data string) bool {
 			if strings.TrimSpace(data) == "[DONE]" {
 				return false
@@ -187,7 +301,7 @@ func StreamResponses(resp *http.Response, label string) <-chan StreamEvent {
 func handleResponsesEvent(data, label string, state *responsesState, events chan<- StreamEvent) bool {
 	var ev responsesEvent
 	if err := json.Unmarshal([]byte(data), &ev); err != nil {
-		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream decode: %w", label, err)}
+		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, TruncateFrame(data))}
 		return false
 	}
 
@@ -247,14 +361,7 @@ func handleResponsesEvent(data, label string, state *responsesState, events chan
 		}
 
 	case "response.failed", "error":
-		msg := ev.Message
-		if ev.Response != nil && ev.Response.Error != nil {
-			msg = ev.Response.Error.Message
-		}
-		if msg == "" {
-			msg = ev.Type
-		}
-		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream: %s", label, msg)}
+		events <- StreamEvent{Type: StreamEventError, Err: ResponsesStreamError(label, data)}
 		return false
 
 	case "response.completed", "response.incomplete":
