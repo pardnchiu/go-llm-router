@@ -45,12 +45,12 @@ func Usage(ctx context.Context, config core.Config) (float64, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, core.ErrorBodyLimit))
 		return 0, fmt.Errorf("codex usage http %d: %s", resp.StatusCode, raw)
 	}
 
 	var usage usageResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&usage); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, core.JSONBodyLimit)).Decode(&usage); err != nil {
 		return 0, fmt.Errorf("json.Decode: %w", err)
 	}
 

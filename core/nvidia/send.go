@@ -13,7 +13,7 @@ const (
 	chatAPI = "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	// * do not support mutiple system prompt, merge to one
 	var merged []core.Message
 	var systemParts []string
@@ -39,16 +39,23 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning_effort"] = effort
 	}
+	return body
+}
 
-	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, map[string]string{
+func (a *Agent) headers() map[string]string {
+	return map[string]string{
 		"Authorization": "Bearer " + a.apiKey,
 		"Content-Type":  "application/json",
-	}, body, "json")
+	}
+}
+
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, a.headers(), a.buildBody(messages, tools, reasoning), "json")
 	if err != nil {
 		return nil, code, err
 	}
 	if result.Error != nil {
-		return nil, code, fmt.Errorf("%s", result.Error.Message)
+		return nil, code, fmt.Errorf("%s: %s", label, result.Error.Message)
 	}
 	return &result, code, nil
 }

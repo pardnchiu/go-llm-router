@@ -14,7 +14,14 @@ const (
 	baseAPI = "https://generativelanguage.googleapis.com/v1beta/models/"
 )
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) headers() map[string]string {
+	return map[string]string{
+		"Content-Type":   "application/json",
+		"x-goog-api-key": a.apiKey,
+	}
+}
+
+func (a *Agent) buildRequest(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
 	messages = rewriteSyntheticActivations(messages)
 
 	var systemParts []string
@@ -34,15 +41,15 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 
 	systemPrompt := strings.Join(systemParts, "\n\n")
 	newTools := a.convertToTools(tools)
-	apiURL := fmt.Sprintf("%s%s:generateContent", baseAPI, a.model)
 
 	cachedName, sendMessages := a.applyCache(ctx, systemPrompt, newMessages, newTools)
-	requestBody := a.generateRequestBody(sendMessages, systemPrompt, newTools, cachedName, reasoning)
+	return a.generateRequestBody(sendMessages, systemPrompt, newTools, cachedName, reasoning)
+}
 
-	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, apiURL, map[string]string{
-		"Content-Type":   "application/json",
-		"x-goog-api-key": a.apiKey,
-	}, requestBody, "json")
+func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+	apiURL := fmt.Sprintf("%s%s:generateContent", baseAPI, a.model)
+
+	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, apiURL, a.headers(), a.buildRequest(ctx, messages, tools, reasoning), "json")
 	if err != nil {
 		return nil, code, err
 	}

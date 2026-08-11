@@ -87,7 +87,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		return nil, code, err
 	}
 	if len(resp.Errors) > 0 {
-		return nil, code, fmt.Errorf("%s", resp.Errors[0].Message)
+		return nil, code, fmt.Errorf("%s: %s", label, resp.Errors[0].Message)
 	}
 	return &resp.Result, code, nil
 }

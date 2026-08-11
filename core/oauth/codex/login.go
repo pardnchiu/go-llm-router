@@ -130,25 +130,25 @@ func startCallbackServer(expectedState string, codeCh chan<- string, errCh chan<
 
 		if errParam := q.Get("error"); errParam != "" {
 			desc := q.Get("error_description")
-			fmt.Fprintf(w, "授權失敗%s: %s", errParam, desc)
+			fmt.Fprintf(w, "Authorization failed: %s: %s", errParam, desc)
 			errCh <- fmt.Errorf("%s: %s", errParam, desc)
 			return
 		}
 
 		if q.Get("state") != expectedState {
-			fmt.Fprint(w, "授權失敗")
+			fmt.Fprint(w, "Authorization failed: state mismatch")
 			errCh <- fmt.Errorf("state mismatch")
 			return
 		}
 
 		code := q.Get("code")
 		if code == "" {
-			fmt.Fprint(w, "授權失敗: 未收到授權碼")
+			fmt.Fprint(w, "Authorization failed: missing code")
 			errCh <- fmt.Errorf("missing code")
 			return
 		}
 
-		fmt.Fprint(w, "授權成功")
+		fmt.Fprint(w, "Authorization successful — you can close this tab.")
 		codeCh <- code
 	})
 
