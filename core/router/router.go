@@ -13,6 +13,7 @@ import (
 	"github.com/pardnchiu/go-llm-router/core/gemini"
 	"github.com/pardnchiu/go-llm-router/core/grok"
 	grokoauth "github.com/pardnchiu/go-llm-router/core/grokOauth"
+	"github.com/pardnchiu/go-llm-router/core/mistral"
 	"github.com/pardnchiu/go-llm-router/core/nvidia"
 	openrouter "github.com/pardnchiu/go-llm-router/core/openRouter"
 	"github.com/pardnchiu/go-llm-router/core/openai"
@@ -44,6 +45,9 @@ var newFn = map[string]func(config Config) (core.Agent, error){
 	},
 	"deepseek": func(config Config) (core.Agent, error) {
 		return deepseek.New(core.Config{Model: strings.TrimPrefix(config.Name, deepseek.Prefix), APIKey: config.APIKey})
+	},
+	"mistral": func(config Config) (core.Agent, error) {
+		return mistral.New(core.Config{Model: strings.TrimPrefix(config.Name, mistral.Prefix), APIKey: config.APIKey})
 	},
 	"nvidia": func(config Config) (core.Agent, error) {
 		return nvidia.New(core.Config{Model: strings.TrimPrefix(config.Name, nvidia.Prefix), APIKey: config.APIKey})
