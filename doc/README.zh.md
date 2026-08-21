@@ -33,7 +33,7 @@
 
 > `go get github.com/pardnchiu/go-llm-router` · [完整文件](./doc.zh.md)
 
-- **統一 Agent 介面** — 十二家供應商共用 `Send` 介面，呼叫端無需為各家 API 寫適配層。
+- **統一 Agent 介面** — 十家供應商共用 `Send` 介面，呼叫端無需為各家 API 寫適配層。
 - **字串路由工廠** — 以 `provider@model` 字串一次建立對應 Agent，支援括號標籤與自訂 endpoint。
 - **推理層級正規化** — 將 `none` 到 `xhigh` 統一映射到 Claude thinking、Gemini budget、OpenAI effort 等各家機制。
 - **跨供應商用量吸收** — 自動吸收 `prompt_tokens`／`input_tokens` 與 cache 欄位差異，輸出一致的 Input／Output／Cache 計數。

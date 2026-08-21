@@ -115,7 +115,7 @@ flowchart LR
 
 | Provider key | Constructor | Required configuration |
 |---|---|---|
-| `claude`, `openai`, `gemini`, `grok`, `deepseek`, `nvidia`, `openrouter` | Matching package `New` | `APIKey` |
+| `claude`, `openai`, `gemini`, `grok`, `deepseek`, `mistral`, `nvidia`, `openrouter` | Matching package `New` | `APIKey` |
 | `cloudflare` | `cloudflare.New` | `APIKey`, `AccountID`, `GatewayID` |
 | `compat` | `compat.New` | `BaseURL`; optional `APIKey` |
 | `copilot`, `codex`, `grok-oauth` | OAuth-backed package `New` | `Token` |
@@ -191,6 +191,7 @@ graph TB
 | `copilot` | Chat Completions or Responses | Endpoint-capability lookup/cache, OAuth authentication, and public streaming |
 | `openaiCodex` | ChatGPT Codex Responses via SSE | OAuth authentication, prompt-cache key, internal SSE assembly, and image generation |
 | `deepseek` | Chat Completions | System-prompt merge and assistant reasoning placeholder |
+| `mistral` | Chat Completions | Thinking-part flattening and two-level reasoning effort |
 | `nvidia` | Chat Completions | System-prompt merge and reasoning-effort mapping |
 | `openRouter` | Chat Completions | Reasoning-detail preservation and supported priority tier |
 | `cloudflare` | Workers AI Run | Content flattening and account/gateway request configuration |

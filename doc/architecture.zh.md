@@ -138,6 +138,7 @@ flowchart LR
 | `gemini` | `gemini.New` | `APIKey` |
 | `grok` | `grok.New` | `APIKey` |
 | `deepseek` | `deepseek.New` | `APIKey` |
+| `mistral` | `mistral.New` | `APIKey` |
 | `nvidia` | `nvidia.New` | `APIKey` |
 | `openrouter` | `openrouter.New` | `APIKey` |
 | `cloudflare` | `cloudflare.New` | `APIKey`、`AccountID`、`GatewayID` |
@@ -225,6 +226,7 @@ graph TB
 | `copilot` | Chat Completions 或 Responses | 查詢並快取模型端點能力，再選擇 endpoint；支援同步與串流 |
 | `openaiCodex` | ChatGPT Codex Responses SSE | OAuth 認證、SSE 彙整、prompt cache key 與圖片生成 API |
 | `deepseek` | Chat Completions | 合併 system 訊息，補入 assistant reasoning placeholder |
+| `mistral` | Chat Completions | 攤平 thinking part，映射兩級 reasoning effort |
 | `nvidia` | Chat Completions | 合併 system 訊息，映射 reasoning effort |
 | `openRouter` | Chat Completions | 保存 reasoning details，並按模型支援設定 priority tier |
 | `cloudflare` | Workers AI Run | 將多模態內容平坦化、使用 Account／Gateway 設定 |

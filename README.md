@@ -33,7 +33,7 @@
 
 > `go get github.com/pardnchiu/go-llm-router` · [Documentation](./doc/doc.md)
 
-- **Unified Agent Interface** — Twelve providers share one `Send` surface so callers never write per-vendor adapters.
+- **Unified Agent Interface** — Ten providers share one `Send` surface so callers never write per-vendor adapters.
 - **String Routing Factory** — Build the right Agent from a `provider@model` name, with bracket tags and custom endpoints.
 - **Reasoning Level Normalization** — Map `none` through `xhigh` onto Claude thinking, Gemini budgets, OpenAI effort, and more.
 - **Cross-Provider Usage Absorption** — Fold `prompt_tokens` / `input_tokens` and cache fields into one Input / Output / Cache shape.

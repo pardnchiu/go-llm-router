@@ -54,7 +54,7 @@ Pass `router.Config` to `router.New` to select and configure a provider.
 | `AccountID` | `cloudflare` only | Cloudflare account identifier |
 | `GatewayID` | `cloudflare` only | Cloudflare AI Gateway identifier |
 
-Provider prefixes are `claude`, `openai`, `gemini`, `grok`, `grok-oauth`, `deepseek`, `nvidia`, `openrouter`, `cloudflare`, `compat`, `copilot`, and `codex`.
+Provider prefixes are `claude`, `openai`, `gemini`, `grok`, `grok-oauth`, `deepseek`, `mistral`, `nvidia`, `openrouter`, `cloudflare`, `compat`, `copilot`, and `codex`.
 
 ### Model-name formats
 
@@ -75,6 +75,7 @@ The test server obtains credentials from environment variables for each request.
 | `gemini` | `GEMINI_API_KEY` |
 | `grok` | `XAI_API_KEY` |
 | `deepseek` | `DEEPSEEK_API_KEY` |
+| `mistral` | `MISTRAL_API_KEY` |
 | `nvidia` | `NVIDIA_API_KEY` |
 | `openrouter` | `OPENROUTER_API_KEY` |
 | `cloudflare` | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID` |
@@ -381,7 +382,7 @@ type StreamAgent interface {
 | `core/grok` / `core/grokOauth` | xAI API-key and OAuth Responses API routes |
 | `core/copilot` | GitHub Copilot Chat or Responses API selection and streaming |
 | `core/openaiCodex` | ChatGPT Codex OAuth Responses API and image generation |
-| `core/deepseek`, `core/nvidia`, `core/openRouter`, `core/cloudflare`, `core/compat` | Additional key-based provider adapters |
+| `core/deepseek`, `core/mistral`, `core/nvidia`, `core/openRouter`, `core/cloudflare`, `core/compat` | Additional key-based provider adapters |
 | `core/oauth/*` | Login, load, refresh, and keychain storage for OAuth credentials |
 
 ### Codex image generation
