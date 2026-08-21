@@ -40,7 +40,7 @@ go build ./...
 
 | Name 前綴 | 驗證方式 |
 |---|---|
-| `claude`、`openai`、`gemini`、`grok`、`deepseek`、`nvidia`、`openrouter` | `APIKey` |
+| `claude`、`openai`、`gemini`、`grok`、`deepseek`、`mistral`、`nvidia`、`openrouter` | `APIKey` |
 | `cloudflare` | `APIKey`、`AccountID`、`GatewayID` |
 | `compat` | `BaseURL`；`APIKey` 可選 |
 | `copilot`、`codex`、`grok-oauth` | `Token` |
@@ -260,6 +260,7 @@ make test
 | `gemini` | `GEMINI_API_KEY` |
 | `grok` | `XAI_API_KEY` |
 | `deepseek` | `DEEPSEEK_API_KEY` |
+| `mistral` | `MISTRAL_API_KEY` |
 | `nvidia` | `NVIDIA_API_KEY` |
 | `openrouter` | `OPENROUTER_API_KEY` |
 | `cloudflare` | `CLOUDFLARE_API_KEY`、`CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_GATEWAY_ID` |

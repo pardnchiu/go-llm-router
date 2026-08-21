@@ -81,6 +81,16 @@ type CopilotModels struct {
 	} `json:"data"`
 }
 
+type MistralModels struct {
+	Data []struct {
+		ID           string `json:"id"`
+		Capabilities struct {
+			CompletionChat bool `json:"completion_chat"`
+			Reasoning      bool `json:"reasoning"`
+		} `json:"capabilities"`
+	} `json:"data"`
+}
+
 type GeminiModels struct {
 	Models []struct {
 		Name                       string   `json:"name"`
