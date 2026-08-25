@@ -36,5 +36,5 @@ func New(config core.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return a.model
+	return Prefix + a.model
 }

@@ -49,6 +49,7 @@ type Config struct {
 	APIKey  string
 	Token   any
 	BaseURL string
+	Prefix  string
 
 	// * cloudflare
 	AccountID string

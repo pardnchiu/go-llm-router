@@ -64,11 +64,12 @@ var newFn = map[string]func(config Config) (core.Agent, error){
 		})
 	},
 	"compat": func(config Config) (core.Agent, error) {
-		_, model, _ := strings.Cut(config.Name, "@")
+		head, model, _ := strings.Cut(config.Name, "@")
 		return compat.New(core.Config{
 			Model:   model,
 			APIKey:  config.APIKey,
 			BaseURL: config.BaseURL,
+			Prefix:  compatPrefix(head),
 		})
 	},
 	"copilot": func(config Config) (core.Agent, error) {
@@ -80,6 +81,18 @@ var newFn = map[string]func(config Config) (core.Agent, error){
 	"grok-oauth": func(config Config) (core.Agent, error) {
 		return grokoauth.New(core.Config{Model: strings.TrimPrefix(config.Name, grokoauth.Prefix), Token: config.Token})
 	},
+}
+
+func compatPrefix(head string) string {
+	_, rest, found := strings.Cut(head, "[")
+	if !found {
+		return ""
+	}
+	instance, _, closed := strings.Cut(rest, "]")
+	if !closed || instance == "" {
+		return ""
+	}
+	return strings.ToLower(instance) + "@"
 }
 
 func New(config Config) (core.Agent, error) {
