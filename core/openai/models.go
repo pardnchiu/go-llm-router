@@ -38,7 +38,7 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 		if id == "" {
 			continue
 		}
-		if filter.TextOnly && !core.IsTextModel(id) {
+		if !core.MatchModelFilter(id, filter) {
 			continue
 		}
 		ids = append(ids, id)
