@@ -138,6 +138,8 @@ func leadingInt(text string) (int, bool) {
 
 type ModelFilter struct {
 	TextOnly bool
+	STTOnly  bool
+	TTSOnly  bool
 }
 
 var nonTextMarkers = []string{
@@ -149,11 +151,48 @@ var nonTextMarkers = []string{
 	"babbage-", "davinci-", "search-", "transcribe", "moderation-",
 }
 
-func IsTextModel(id string) bool {
-	for _, marker := range nonTextMarkers {
+var sttMarkers = []string{
+	"transcribe", "whisper-",
+}
+
+var ttsMarkers = []string{
+	"-tts", "tts-",
+}
+
+var nonHTTPMarkers = []string{
+	"-live",
+}
+
+func containsAny(id string, markers []string) bool {
+	for _, marker := range markers {
 		if strings.Contains(id, marker) {
-			return false
+			return true
 		}
+	}
+	return false
+}
+
+func IsTextModel(id string) bool {
+	return !containsAny(id, nonTextMarkers)
+}
+
+func IsSTTModel(id string) bool {
+	return !containsAny(id, nonHTTPMarkers) && containsAny(id, sttMarkers)
+}
+
+func IsTTSModel(id string) bool {
+	return !containsAny(id, nonHTTPMarkers) && containsAny(id, ttsMarkers)
+}
+
+func MatchModelFilter(id string, filter ModelFilter) bool {
+	if filter.TextOnly && !IsTextModel(id) {
+		return false
+	}
+	if filter.STTOnly && !IsSTTModel(id) {
+		return false
+	}
+	if filter.TTSOnly && !IsTTSModel(id) {
+		return false
 	}
 	return true
 }

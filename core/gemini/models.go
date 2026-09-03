@@ -48,7 +48,7 @@ func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter
 		if name == "" || !slices.Contains(m.SupportedGenerationMethods, "generateContent") {
 			continue
 		}
-		if filter.TextOnly && !core.IsTextModel(name) {
+		if !core.MatchModelFilter(name, filter) {
 			continue
 		}
 		infos = append(infos, core.ModelInfo{ID: name, Thinking: m.Thinking})
