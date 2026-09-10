@@ -96,11 +96,15 @@ func compatPrefix(head string) string {
 }
 
 func New(config Config) (core.Agent, error) {
-	providerFull, _, _ := strings.Cut(config.Name, "@")
+	providerFull, model, found := strings.Cut(config.Name, "@")
 	prov, _, _ := strings.Cut(providerFull, "[")
 	fn, ok := newFn[prov]
 	if !ok {
-		return nil, fmt.Errorf("router.New: unknown provider %q in %q", prov, config.Name)
+		if !found || prov == "" {
+			return nil, fmt.Errorf("router.New: unknown provider %q in %q", prov, config.Name)
+		}
+		config.Name = "compat[" + prov + "]@" + model
+		fn = newFn["compat"]
 	}
 	return fn(config)
 }
