@@ -15,6 +15,7 @@ import (
 	grokoauth "github.com/pardnchiu/go-llm-router/core/grokOauth"
 	"github.com/pardnchiu/go-llm-router/core/mistral"
 	"github.com/pardnchiu/go-llm-router/core/nvidia"
+	ollamacloud "github.com/pardnchiu/go-llm-router/core/ollamaCloud"
 	openrouter "github.com/pardnchiu/go-llm-router/core/openRouter"
 	"github.com/pardnchiu/go-llm-router/core/openai"
 	openaicodex "github.com/pardnchiu/go-llm-router/core/openaiCodex"
@@ -51,6 +52,9 @@ var newFn = map[string]func(config Config) (core.Agent, error){
 	},
 	"nvidia": func(config Config) (core.Agent, error) {
 		return nvidia.New(core.Config{Model: strings.TrimPrefix(config.Name, nvidia.Prefix), APIKey: config.APIKey})
+	},
+	"ollama-cloud": func(config Config) (core.Agent, error) {
+		return ollamacloud.New(core.Config{Model: strings.TrimPrefix(config.Name, ollamacloud.Prefix), APIKey: config.APIKey})
 	},
 	"openrouter": func(config Config) (core.Agent, error) {
 		return openrouter.New(core.Config{Model: strings.TrimPrefix(config.Name, openrouter.Prefix), APIKey: config.APIKey})
