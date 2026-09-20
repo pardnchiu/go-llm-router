@@ -27,9 +27,17 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
+	task := "Text Generation"
+	switch {
+	case filter.STTOnly:
+		task = "Automatic Speech Recognition"
+	case filter.TTSOnly:
+		task = "Text-to-Speech"
+	}
+
 	ids := make([]string, 0, len(data.Result))
 	for _, m := range data.Result {
-		if m.Name == "" || m.Task.Name != "Text Generation" {
+		if m.Name == "" || m.Task.Name != task {
 			continue
 		}
 		if filter.TextOnly && !core.IsTextModel(m.Name) {

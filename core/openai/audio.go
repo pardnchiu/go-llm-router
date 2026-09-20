@@ -17,8 +17,7 @@ const (
 	transcriptionAPI = "https://api.openai.com/v1/audio/transcriptions"
 	speechAPI        = "https://api.openai.com/v1/audio/speech"
 	defaultVoice     = "alloy"
-	speechFormat     = "wav"
-	speechMime       = "audio/wav"
+	defaultFormat    = "wav"
 )
 
 func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts core.STTOptions) (*core.STTResult, error) {
@@ -87,11 +86,15 @@ func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*
 	if voice == "" {
 		voice = defaultVoice
 	}
+	format := strings.ToLower(strings.TrimSpace(opts.Format))
+	if format == "" {
+		format = defaultFormat
+	}
 	payload, err := json.Marshal(map[string]any{
 		"model":           a.model,
 		"input":           text,
 		"voice":           voice,
-		"response_format": speechFormat,
+		"response_format": format,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal: %w", err)
@@ -121,9 +124,26 @@ func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*
 	}
 	mime := resp.Header.Get("Content-Type")
 	if mime == "" {
-		mime = speechMime
+		mime = speechMime(format)
 	}
 	return &core.TTSResult{Audio: audio, MimeType: mime}, nil
+}
+
+func speechMime(format string) string {
+	switch format {
+	case "mp3":
+		return "audio/mpeg"
+	case "opus":
+		return "audio/ogg"
+	case "aac":
+		return "audio/aac"
+	case "flac":
+		return "audio/flac"
+	case "pcm":
+		return "audio/pcm"
+	default:
+		return "audio/wav"
+	}
 }
 
 var audioExtByMime = map[string]string{

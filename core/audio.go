@@ -22,7 +22,8 @@ type STTAgent interface {
 }
 
 type TTSOptions struct {
-	Voice string
+	Voice  string
+	Format string // wav (default), mp3, opus, aac, flac, pcm
 }
 
 type TTSResult struct {
