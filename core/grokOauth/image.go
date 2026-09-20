@@ -13,5 +13,5 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.Imag
 	if err != nil {
 		return nil, fmt.Errorf("a.headers: %w", err)
 	}
-	return grok.RequestImage(ctx, core.NewHTTPClient(), headers, prompt, opts)
+	return grok.RequestImage(ctx, core.NewHTTPClient(), headers, a.model, prompt, opts)
 }

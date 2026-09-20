@@ -3,17 +3,22 @@ package openai
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/pardnchiu/go-llm-router/core"
+	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const (
-	imageModel        = "gpt-image-2"
+	imageAPI          = "https://api.openai.com/v1/images/generations"
+	imageEditAPI      = "https://api.openai.com/v1/images/edits"
 	imageLabel        = "openai image"
+	imageFormat       = "png"
 	ImageInstructions = "You are an image generation assistant. Use the image_generation tool to produce exactly one image matching the user's prompt. Do not respond with text."
 )
 
@@ -31,15 +36,14 @@ type imageEvent struct {
 	} `json:"error,omitempty"`
 }
 
-func imageTool(opts core.ImageOptions) map[string]any {
-	tool := map[string]any{"type": "image_generation", "model": imageModel}
-	if size := core.ImagePixelSize(opts); size != "" {
-		tool["size"] = size
-	}
-	if opts.Quality != "" {
-		tool["quality"] = opts.Quality
-	}
-	return tool
+type imageResponse struct {
+	Data []struct {
+		B64JSON       string `json:"b64_json"`
+		RevisedPrompt string `json:"revised_prompt"`
+	} `json:"data"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
 }
 
 func ImageInput(prompt string, opts core.ImageOptions) []map[string]any {
@@ -53,28 +57,100 @@ func ImageInput(prompt string, opts core.ImageOptions) []map[string]any {
 	return []map[string]any{{"role": "user", "content": content}}
 }
 
-func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func imageBody(model, prompt string, opts core.ImageOptions) map[string]any {
 	body := map[string]any{
-		"model":        a.model,
-		"instructions": ImageInstructions,
-		"input":        ImageInput(prompt, opts),
-		"tools":        []map[string]any{imageTool(opts)},
-		"store":        false,
-		"stream":       true,
+		"model":         model,
+		"prompt":        prompt,
+		"n":             1,
+		"output_format": imageFormat,
+	}
+	if size := core.ImagePixelSize(opts); size != "" {
+		body["size"] = size
+	}
+	if opts.Quality != "" {
+		body["quality"] = opts.Quality
+	}
+	return body
+}
+
+func (a *Agent) generate(ctx context.Context, prompt string, opts core.ImageOptions) (*imageResponse, error) {
+	headers := map[string]string{"Authorization": "Bearer " + a.apiKey}
+	result, code, err := go_pkg_http.POST[imageResponse](ctx, a.httpClient, imageAPI, headers, imageBody(a.model, prompt, opts), "json")
+	if err != nil {
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POST: %w", err)
+	}
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("%s: http %d", imageLabel, code)
+	}
+	return &result, nil
+}
+
+func (a *Agent) edit(ctx context.Context, prompt string, opts core.ImageOptions) (*imageResponse, error) {
+	raw, err := base64.StdEncoding.DecodeString(opts.RefImageB64)
+	if err != nil {
+		return nil, fmt.Errorf("base64.Decode: %w", err)
 	}
 
-	headers := map[string]string{
-		"Authorization": "Bearer " + a.apiKey,
-		"Content-Type":  "application/json",
+	mime := opts.RefMime
+	if mime == "" {
+		mime = "image/png"
+	}
+	body := imageBody(a.model, prompt, opts)
+	body["image"] = go_pkg_http.File{
+		Name:        "reference" + imageExt(opts.RefMime),
+		ContentType: mime,
+		Data:        raw,
 	}
 
-	resp, err := core.OpenStream(ctx, a.httpClient, responsesAPI, headers, body, imageLabel)
+	headers := map[string]string{"Authorization": "Bearer " + a.apiKey}
+	result, code, err := go_pkg_http.POST[imageResponse](ctx, a.httpClient, imageEditAPI, headers, body, "multipart")
+	if err != nil {
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POST: %w", err)
+	}
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("%s: http %d", imageLabel, code)
+	}
+	return &result, nil
+}
+
+func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+	var out *imageResponse
+	var err error
+	if opts.RefImageB64 != "" {
+		out, err = a.edit(ctx, prompt, opts)
+	} else {
+		out, err = a.generate(ctx, prompt, opts)
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
-	return ReadImageStream(resp.Body)
+	if out.Error != nil {
+		return nil, fmt.Errorf("%s: %s", imageLabel, out.Error.Message)
+	}
+	if len(out.Data) == 0 || out.Data[0].B64JSON == "" {
+		return nil, fmt.Errorf("%s: no image in response", imageLabel)
+	}
+	return &core.ImageResult{
+		B64:      out.Data[0].B64JSON,
+		MimeType: "image/" + imageFormat,
+		Revised:  out.Data[0].RevisedPrompt,
+	}, nil
+}
+
+var imageExtByMime = map[string]string{
+	"image/png":  ".png",
+	"image/jpeg": ".jpg",
+	"image/jpg":  ".jpg",
+	"image/webp": ".webp",
+}
+
+func imageExt(mime string) string {
+	base, _, _ := strings.Cut(mime, ";")
+	if ext, ok := imageExtByMime[strings.ToLower(strings.TrimSpace(base))]; ok {
+		return ext
+	}
+	return ".png"
 }
 
 func ReadImageStream(body io.Reader) (*core.ImageResult, error) {

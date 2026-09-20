@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	imageModel   = "grok-imagine-image-2.0"
 	imageAPI     = "https://api.x.ai/v1/images/generations"
 	imageEditAPI = "https://api.x.ai/v1/images/edits"
 )
@@ -24,9 +23,9 @@ type imageResponse struct {
 	Error any `json:"error"`
 }
 
-func imageBody(prompt string, opts core.ImageOptions) map[string]any {
+func imageBody(model, prompt string, opts core.ImageOptions) map[string]any {
 	body := map[string]any{
-		"model":           imageModel,
+		"model":           model,
 		"prompt":          prompt,
 		"n":               1,
 		"response_format": "b64_json",
@@ -49,13 +48,13 @@ func imageBody(prompt string, opts core.ImageOptions) map[string]any {
 	return body
 }
 
-func RequestImage(ctx context.Context, client *http.Client, headers map[string]string, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func RequestImage(ctx context.Context, client *http.Client, headers map[string]string, model, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
 	endpoint := imageAPI
 	if opts.RefImageB64 != "" {
 		endpoint = imageEditAPI
 	}
 
-	result, code, err := go_pkg_http.POST[imageResponse](ctx, client, endpoint, headers, imageBody(prompt, opts), "json")
+	result, code, err := go_pkg_http.POST[imageResponse](ctx, client, endpoint, headers, imageBody(model, prompt, opts), "json")
 	if err != nil {
 		return nil, err
 	}
@@ -74,5 +73,5 @@ func RequestImage(ctx context.Context, client *http.Client, headers map[string]s
 }
 
 func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
-	return RequestImage(ctx, a.httpClient, a.headers(), prompt, opts)
+	return RequestImage(ctx, a.httpClient, a.headers(), a.model, prompt, opts)
 }

@@ -16,11 +16,11 @@
 
 ***
 
-> Go LLM 路由函式庫，具備統一 Agent 介面、多供應商路由與正規化 token 用量
+> Go LLM 路由函式庫，具備統一 Agent 介面、字串路由工廠與跨供應商用量正規化
 
-> 從 `Agenvoy` [2741d4a](https://github.com/agenvoy/Agenvoy/commit/2741d4a3be70c5bfac1bba9e1d5d54a65db15acd) 移出為獨立套件
+> 自 `Agenvoy` [2741d4a](https://github.com/agenvoy/Agenvoy/commit/2741d4a3be70c5bfac1bba9e1d5d54a65db15acd) 抽離為獨立套件
 >
-> Agenvoy **v0.28.17 起**，LLM provider 統一改用本套件 `go-llm-router` 取代。
+> **自 v0.28.17 起**，Agenvoy 的 LLM 供應商全面改由本套件 `go-llm-router` 提供。
 
 ## 目錄
 
@@ -33,11 +33,11 @@
 
 > `go get github.com/pardnchiu/go-llm-router` · [完整文件](./doc.zh.md)
 
-- **統一 Agent 介面** — 十家供應商共用 `Send` 介面，呼叫端無需為各家 API 寫適配層。
-- **字串路由工廠** — 以 `provider@model` 字串一次建立對應 Agent，支援括號標籤與自訂 endpoint。
-- **推理層級正規化** — 將 `none` 到 `xhigh` 統一映射到 Claude thinking、Gemini budget、OpenAI effort 等各家機制。
-- **跨供應商用量吸收** — 自動吸收 `prompt_tokens`／`input_tokens` 與 cache 欄位差異，輸出一致的 Input／Output／Cache 計數。
-- **OAuth 與影像擴充** — 內建 Copilot／Codex／Grok OAuth 流程，Codex 另支援影像生成與多模態輸入。
+- **統一 Agent 介面** — 十四個供應商共用同一組 `Send` / `SendStream` 契約，呼叫端不必為每家廠商寫轉接層。
+- **字串路由工廠** — 以 `provider@model` 取得對應 Agent，未知前綴自動落到 OpenAI 相容端點成為具名實例。
+- **推理等級正規化** — `none` 到 `max` 六級對映到 Claude thinking、Gemini budget、OpenAI effort，並依模型上下限自動收斂。
+- **用量欄位吸收** — `prompt_tokens` / `input_tokens` 與各式快取欄位折疊成單一 Input / Output / Cache 形狀。
+- **多模態與 OAuth 延伸** — 內建 Copilot / Codex / Grok OAuth 流程，以及圖片生成、語音轉文字與文字轉語音代理。
 
 ## 架構
 
@@ -47,12 +47,13 @@
 graph TB
     App[呼叫端] --> Router[router.New]
     Router --> Agent[core.Agent]
-    Agent --> Claude[Claude]
-    Agent --> OpenAI[OpenAI / Codex]
-    Agent --> Gemini[Gemini]
-    Agent --> Others[Grok / DeepSeek / 其他]
-    Agent --> OAuth[oauth]
-    Agent --> Usage[Usage 正規化]
+    Agent --> KeyBased[金鑰型供應商]
+    Agent --> OAuthBased[OAuth 型供應商]
+    Agent --> Compat[OpenAI 相容端點]
+    OAuthBased --> OAuth[core/oauth 權杖存取]
+    Agent --> Stream[串流事件正規化]
+    Agent --> Usage[用量正規化]
+    Agent --> Media[圖片 / 語音代理]
 ```
 
 ## 授權
@@ -61,13 +62,12 @@ graph TB
 
 ## Author
 
-<img src="https://github.com/pardnchiu.png" align="left" width="96" height="96" style="margin-right: 0.5rem;">
+Just [open an issue](https://github.com/pardnchiu/go-llm-router/issues/new) to share an idea.
 
-<h4 style="padding-top: 0">邱敬幃 Pardn Chiu</h4>
-
-<a href="mailto:hi@pardn.io">hi@pardn.io</a><br>
-<a href="https://www.linkedin.com/in/pardnchiu">https://www.linkedin.com/in/pardnchiu</a>
+<a href="https://github.com/pardnchiu/go-llm-router/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-09-20" alt="go-llm-router contributors" />
+</a>
 
 ***
 
-©️ 2026 [邱敬幃 Pardn Chiu](https://pardn.io)
+©️ 2026 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)

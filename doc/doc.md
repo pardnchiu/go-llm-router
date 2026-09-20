@@ -2,21 +2,33 @@
 
 > Back to [README](../README.md)
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Reference](#api-reference)
+
 ## Prerequisites
 
-- Go 1.25 or later
-- Credentials for the provider you will use: an API key, or an OAuth token for Copilot, Codex, or Grok OAuth
-- Access to the operating-system keychain when using packages under `core/oauth`
+- Go 1.25 or higher
+- `github.com/pardnchiu/go-pkg` v0.13.14 (the only direct dependency, pulled in by `go get`)
+- At least one provider credential:
+  - Key-based: Anthropic, OpenAI, Gemini, xAI, DeepSeek, Mistral, NVIDIA, Ollama Cloud, OpenRouter, Cloudflare Workers AI
+  - OAuth-based: a GitHub Copilot subscription, a ChatGPT (Codex) account, a Grok account
+  - Any self-hosted or third-party OpenAI-compatible endpoint (`compat`)
+- macOS Keychain or Linux `secret-tool` (OAuth providers only; tokens are stored through `go-pkg/filesystem/keychain`)
 
 ## Installation
 
-### Add the module
+### As a module dependency
 
 ```bash
 go get github.com/pardnchiu/go-llm-router
 ```
 
-### Build from source
+### From source
 
 ```bash
 git clone https://github.com/pardnchiu/go-llm-router.git
@@ -24,71 +36,23 @@ cd go-llm-router
 go build ./...
 ```
 
-### Run the local OpenAI-compatible test server
-
-`make test` runs `go run ./cmd/test`, which starts an HTTP server on port `8787` by default.
-
-```bash
-export OPENAI_API_KEY="your-api-key"
-make test
-```
-
-Set `PORT` to use a different listener port:
-
-```bash
-PORT=8080 make test
-```
-
 ## Configuration
 
-### `router.Config`
+### The library itself
 
-Pass `router.Config` to `router.New` to select and configure a provider.
+The library reads no environment variables; callers pass every credential through `router.Config`. OAuth provider tokens live in the system keychain:
 
-| Field | Required | Description |
-|---|---:|---|
-| `Name` | Yes | Provider and model in `provider@model` form |
-| `APIKey` | Conditional | API credential for key-based providers |
-| `Token` | Conditional | OAuth token object for `copilot`, `codex`, or `grok-oauth` |
-| `BaseURL` | `compat` only | Base URL of an OpenAI-compatible endpoint |
-| `AccountID` | `cloudflare` only | Cloudflare account identifier |
-| `GatewayID` | `cloudflare` only | Cloudflare AI Gateway identifier |
-
-Provider prefixes are `claude`, `openai`, `gemini`, `grok`, `grok-oauth`, `deepseek`, `mistral`, `nvidia`, `openrouter`, `cloudflare`, `compat`, `copilot`, and `codex`.
-
-### Model-name formats
-
-| Format | Meaning | Example |
+| Provider | Keychain key | How to obtain |
 |---|---|---|
-| `<provider>@<model>` | Standard router key | `openai@gpt-5.4` |
-| `<provider>[<tag>]@<model>` | The optional bracket tag is ignored while selecting the provider | `claude[eu]@claude-opus-4-8` |
-| `compat@<model>` | Custom OpenAI-compatible endpoint; also requires `BaseURL` | `compat@my-local-model` |
+| Copilot | `COPILOT_OAUTH_TOKEN` | `core/oauth/copilot.LoginWithCallback` (device flow) |
+| Codex | `CODEX_OAUTH_TOKEN` | `core/oauth/codex.LoginWithCallback` (PKCE browser authorization) |
+| Grok | `GROK_OAUTH_TOKEN` | `core/oauth/grok.LoginWithCallback` (PKCE browser authorization) |
 
-### Credential requirements for the test server
-
-The test server obtains credentials from environment variables for each request.
-
-| Provider prefix | Required environment variables |
-|---|---|
-| `claude` | `ANTHROPIC_API_KEY` |
-| `openai` | `OPENAI_API_KEY` |
-| `gemini` | `GEMINI_API_KEY` |
-| `grok` | `XAI_API_KEY` |
-| `deepseek` | `DEEPSEEK_API_KEY` |
-| `mistral` | `MISTRAL_API_KEY` |
-| `nvidia` | `NVIDIA_API_KEY` |
-| `openrouter` | `OPENROUTER_API_KEY` |
-| `cloudflare` | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID` |
-| `compat` | `COMPAT_API_KEY`, `COMPAT_BASE_URL` |
-| `copilot` | `COPILOT_TOKEN` |
-
-`COPILOT_TOKEN` accepts either a raw access token or the JSON token produced by the Copilot OAuth flow. The test server does not expose Codex or Grok OAuth model routing.
+All three fall back to the legacy key `agenvoy.<provider>.token` on read.
 
 ## Usage
 
-### Basic request through the router
-
-Create an agent, build messages, then choose both a reasoning level and an execution mode. `ModeDefault` is the portable choice; supported provider/model pairs can use `ModeFast`.
+### Basic: resolve an Agent and send a request
 
 ```go
 package main
@@ -97,144 +61,125 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
-	core "github.com/pardnchiu/go-llm-router/core"
+	"github.com/pardnchiu/go-llm-router/core"
 	"github.com/pardnchiu/go-llm-router/core/router"
 )
 
 func main() {
 	agent, err := router.New(router.Config{
-		Name:   "openai@gpt-5.4",
-		APIKey: "your-api-key",
+		Name:   "claude@claude-opus-5",
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("router.New: %v", err)
 	}
 
-	out, status, err := agent.Send(
-		context.Background(),
-		[]core.Message{{Role: "user", Content: "Explain Go interfaces in one sentence."}},
-		nil,
-		core.ReasoningMedium,
-		core.ModeDefault,
-	)
+	out, code, err := agent.Send(context.Background(),
+		[]core.Message{{Role: "user", Content: "Summarize Go generics in one sentence."}},
+		nil, core.ReasoningDefault, core.ModeDefault)
 	if err != nil {
-		log.Fatalf("request failed (HTTP %d): %v", status, err)
+		log.Fatalf("Send: http %d: %v", code, err)
 	}
 	if len(out.Choices) == 0 {
-		log.Fatal("provider returned no choices")
+		log.Fatal("no choices returned")
 	}
 
 	fmt.Println(out.Choices[0].Message.Content)
+	fmt.Printf("input=%d output=%d cache_read=%d\n",
+		out.Usage.Input, out.Usage.Output, out.Usage.CacheRead)
 }
 ```
 
-### Request fast service when supported
+### Streaming
 
-Fast mode is model-specific. Check it before selecting `ModeFast`; an unsupported model simply receives no provider-specific fast-tier request.
-
-```go
-mode := core.ModeDefault
-if core.SupportFast("openai", "gpt-5.4") {
-	mode = core.ModeFast
-}
-
-out, status, err := agent.Send(ctx, messages, nil, core.ReasoningHigh, mode)
-if err != nil {
-	return fmt.Errorf("HTTP %d: %w", status, err)
-}
-_ = out
-```
-
-Fast-capable routes use provider-native controls: Claude sets `speed: fast`; OpenAI sets `service_tier: fast`; Grok and supported OpenRouter routes set a priority tier. When a provider reports a downgrade, the library records a warning through `slog`.
-
-### Stream output
-
-Providers that implement `core.StreamAgent` can expose text, reasoning, tool-call, usage, completion, and error events through a channel.
+`SendStream` is an optional interface obtained by type assertion; agents without streaming fail the assertion.
 
 ```go
-streamer, ok := agent.(core.StreamAgent)
+streamAgent, ok := agent.(core.StreamAgent)
 if !ok {
 	return fmt.Errorf("%s does not support streaming", agent.Name())
 }
 
-events, err := streamer.SendStream(ctx, messages, tools, core.ReasoningMedium, core.ModeDefault)
+events, err := streamAgent.SendStream(ctx, messages, nil, core.ReasoningHigh, core.ModeDefault)
 if err != nil {
+	var streamErr *core.StreamError
+	if errors.As(err, &streamErr) {
+		return fmt.Errorf("%s: http %d: %s", streamErr.Provider, streamErr.Code, streamErr.Body)
+	}
+	if errors.Is(err, core.ErrStreamUnsupported) {
+		return fmt.Errorf("upstream returned a non-SSE response")
+	}
 	return err
 }
 
-for event := range events {
-	switch event.Type {
+for evt := range events {
+	switch evt.Type {
 	case core.StreamEventText:
-		fmt.Print(event.TextDelta)
+		fmt.Print(evt.TextDelta)
 	case core.StreamEventReasoning:
-		fmt.Print(event.ReasoningDelta)
+		fmt.Print(evt.ReasoningDelta)
 	case core.StreamEventToolCall:
-		fmt.Printf("tool delta: %+v\n", event.ToolCall)
+		fmt.Printf("\n[tool] %s %s\n", evt.ToolCall.Name, evt.ToolCall.Arguments)
 	case core.StreamEventUsage:
-		fmt.Printf("usage: %+v\n", event.Usage)
+		fmt.Printf("\n[usage] in=%d out=%d\n", evt.Usage.Input, evt.Usage.Output)
 	case core.StreamEventError:
-		return event.Err
+		return evt.Err
+	case core.StreamEventDone:
+		fmt.Printf("\n[done] %s\n", evt.FinishReason)
 	}
 }
 ```
 
-### Use function tools
-
-Tools use the OpenAI function-calling shape. Provider adapters translate it into each upstream API's native schema.
+### Reasoning levels and fast mode
 
 ```go
-package main
+reasoning, ok := core.ParseReasoning("xhigh") // none / low / medium / high / xhigh / max
+if !ok {
+	reasoning = core.ReasoningDefault          // medium
+}
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
+// Ask the model for its supported range; out-of-range requests are clamped
+if limited, ok := agent.(core.ReasoningAgent); ok {
+	low, high := limited.ReasoningLimits()
+	reasoning = core.ClampReasoning(reasoning, low, high, "claude", "claude-opus-5")
+}
 
-	core "github.com/pardnchiu/go-llm-router/core"
-)
+mode := core.ModeDefault
+if core.SupportFast("claude", "claude-opus-5") {
+	mode = core.ModeFast
+}
 
-func request(ctx context.Context, agent core.Agent) error {
-	tools := []core.Tool{{
-		Type: "function",
-		Function: core.ToolFunction{
-			Name:        "get_weather",
-			Description: "Return the weather for a city",
-			Parameters: json.RawMessage(`{
-				"type":"object",
-				"properties":{"city":{"type":"string"}},
-				"required":["city"]
-			}`),
-		},
-	}}
+out, _, err := agent.Send(ctx, messages, nil, reasoning, mode)
+```
 
-	out, status, err := agent.Send(
-		ctx,
-		[]core.Message{{Role: "user", Content: "What is the weather in Taipei?"}},
-		tools,
-		core.ReasoningMedium,
-		core.ModeDefault,
-	)
-	if err != nil {
-		return fmt.Errorf("HTTP %d: %w", status, err)
-	}
-	if len(out.Choices) == 0 {
-		return fmt.Errorf("provider returned no choices")
-	}
+### Tool calls
 
-	for _, call := range out.Choices[0].Message.ToolCalls {
-		log.Printf("call %s(%s)", call.Function.Name, call.Function.Arguments)
-	}
-	return nil
+```go
+params := json.RawMessage(`{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}`)
+
+tools := []core.Tool{{
+	Type: "function",
+	Function: core.ToolFunction{
+		Name:        "get_weather",
+		Description: "Get the current weather for a city",
+		Parameters:  params,
+	},
+}}
+
+out, _, err := agent.Send(ctx, messages, tools, core.ReasoningDefault, core.ModeDefault)
+if err != nil {
+	return err
+}
+for _, call := range out.Choices[0].Message.ToolCalls {
+	fmt.Println(call.Function.Name, call.Function.Arguments)
 }
 ```
 
-After executing a tool, append the assistant tool-call message and a `tool` message that sets `ToolCallID` to the call ID before sending the next turn.
+Return tool results with `Role: "tool"` plus `ToolCallID`. Gemini's `ThoughtSignature` must be echoed back verbatim or the next turn is rejected.
 
-### Send multimodal content
-
-`Message.Content` may be a string or a slice of `core.ContentPart`. Providers that accept data URLs can map an `image_url` part to their native image representation.
+### Multimodal input
 
 ```go
 messages := []core.Message{{
@@ -242,163 +187,312 @@ messages := []core.Message{{
 	Content: []core.ContentPart{
 		{Type: "text", Text: "Describe this image."},
 		{Type: "image_url", ImageURL: &core.ImageURL{
-			URL: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...",
+			URL: core.DataURI("image/png", base64.StdEncoding.EncodeToString(raw)),
 		}},
 	},
 }}
 ```
 
-### Load an OAuth token
-
-OAuth packages persist tokens in the operating-system keychain, return `nil, nil` when no stored token exists, and refresh expired Codex or Grok tokens through `EnsureFresh` during requests.
+### Listing models
 
 ```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-
-	oauthCopilot "github.com/pardnchiu/go-llm-router/core/oauth/copilot"
-	"github.com/pardnchiu/go-llm-router/core/router"
-)
-
-func main() {
-	ctx := context.Background()
-	token, err := oauthCopilot.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if token == nil {
-		token, err = oauthCopilot.LoginWithCallback(ctx, func(code *oauthCopilot.DeviceCode) {
-			fmt.Println("Open", code.VerificationURI, "and enter", code.UserCode)
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	agent, err := router.New(router.Config{
-		Name:  "copilot@gpt-5",
-		Token: token,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	_ = agent
+ids, err := gemini.Models(ctx, core.Config{APIKey: key}, core.ModelFilter{TextOnly: true})
+if err != nil {
+	return err
 }
+
+// Image models only; video models never slip through
+images, err := gemini.Models(ctx, core.Config{APIKey: key}, core.ModelFilter{ImageOnly: true})
+
+// gemini / mistral / copilot also expose ModelInfos with thinking, efforts, endpoints
+infos, err := gemini.ModelInfos(ctx, core.Config{APIKey: key}, core.ModelFilter{TextOnly: true})
 ```
 
-### Use the OpenAI-compatible test endpoint
+### Image generation
 
-The local server accepts `POST /v1/chat/completions`, validates `model`, `reasoning`, and `mode`, then selects a configured agent. Set `stream` to receive SSE chunks.
+The image model is the agent model, picked the same way as chat and TTS models. `codex` is the exception: its backend generates from the chat model itself.
 
-```bash
-curl http://127.0.0.1:8787/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "openai@gpt-5.4",
-    "messages": [{"role": "user", "content": "Hello"}],
-    "reasoning": "medium",
-    "mode": "default"
-  }'
+```go
+agent, err := router.New(router.Config{Name: "openai@gpt-image-2", APIKey: key})
+if err != nil {
+	return err
+}
+
+imageAgent, ok := agent.(core.ImageAgent)
+if !ok {
+	return fmt.Errorf("%s cannot generate images", agent.Name())
+}
+
+result, err := imageAgent.GenerateImage(ctx, "A lighthouse at dawn, watercolor", core.ImageOptions{
+	AspectRatio: "16:9",
+	Size:        "1k",
+	Quality:     "high",
+})
+if err != nil {
+	return err
+}
+os.WriteFile("out.png", mustDecode(result.B64), 0644)
 ```
 
-For streaming, add `"stream": true`; the endpoint forwards internal stream events as OpenAI-style `chat.completion.chunk` SSE records and ends with `data: [DONE]`.
+### Speech to text and text to speech
+
+```go
+sttAgent, ok := agent.(core.STTAgent)
+if !ok {
+	return fmt.Errorf("%s cannot transcribe", agent.Name())
+}
+text, err := sttAgent.Transcribe(ctx, raw, core.STTOptions{MimeType: "audio/mp3", Language: "zh"})
+if err != nil {
+	return err
+}
+
+ttsAgent, ok := agent.(core.TTSAgent)
+if !ok {
+	return fmt.Errorf("%s cannot speak", agent.Name())
+}
+speech, err := ttsAgent.Speak(ctx, text.Text, core.TTSOptions{Voice: "alloy", Format: "mp3"})
+if err != nil {
+	return err
+}
+os.WriteFile("out."+strings.TrimPrefix(speech.MimeType, "audio/"), speech.Audio, 0644)
+```
+
+### Querying balance and quota
+
+```go
+remaining, err := openrouter.Usage(ctx, core.Config{APIKey: key})
+if err != nil {
+	return err
+}
+fmt.Printf("credits left: %.2f\n", remaining)
+```
+
+### Self-hosted and third-party compatible endpoints
+
+```go
+// Explicit compat instance
+agent, err := router.New(router.Config{
+	Name:    "compat[lmstudio]@qwen3-30b",
+	BaseURL: "http://127.0.0.1:1234/v1",
+	APIKey:  "not-needed",
+})
+
+// An unknown prefix falls through to compat; Name() reports "groq@llama-3.3-70b"
+agent, err = router.New(router.Config{
+	Name:    "groq@llama-3.3-70b",
+	BaseURL: "https://api.groq.com/openai/v1",
+	APIKey:  os.Getenv("GROQ_API_KEY"),
+})
+```
+
+An empty `BaseURL` defaults to `http://localhost:11434/v1` (Ollama).
 
 ## API Reference
 
-### `core.Agent`
+### Interfaces
 
 ```go
 type Agent interface {
 	Name() string
-	Send(
-		ctx context.Context,
-		messages []Message,
-		toolDefs []Tool,
-		reasoning Reasoning,
-		mode Mode,
-	) (*Output, int, error)
+	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning, mode Mode) (*Output, int, error)
 }
-```
 
-`Send` returns a normalized `Output`, the upstream HTTP status code, and an error. Every provider adapter implements this contract.
-
-### `core.StreamAgent`
-
-```go
 type StreamAgent interface {
-	SendStream(
-		ctx context.Context,
-		messages []Message,
-		toolDefs []Tool,
-		reasoning Reasoning,
-		mode Mode,
-	) (<-chan StreamEvent, error)
+	SendStream(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning, mode Mode) (<-chan StreamEvent, error)
+}
+
+type ReasoningAgent interface {
+	ReasoningLimits() (min, max Reasoning)
+}
+
+type ImageAgent interface {
+	GenerateImage(ctx context.Context, prompt string, opts ImageOptions) (*ImageResult, error)
+}
+
+type STTAgent interface {
+	Transcribe(ctx context.Context, audio []byte, opts STTOptions) (*STTResult, error)
+}
+
+type TTSAgent interface {
+	Speak(ctx context.Context, text string, opts TTSOptions) (*TTSResult, error)
 }
 ```
 
-| Event type | Payload |
-|---|---|
-| `StreamEventText` | `TextDelta` |
-| `StreamEventReasoning` | `ReasoningDelta` |
-| `StreamEventToolCall` | `ToolCall` delta with index, ID, name, or argument fragment |
-| `StreamEventUsage` | Normalized `Usage` |
-| `StreamEventDone` | `FinishReason` |
-| `StreamEventError` | `Err` |
+`Agent` is mandatory; every other interface is reached by type assertion.
 
-### Reasoning and mode
+### router
 
-| Type | Values | Purpose |
+| Symbol | Signature | Description |
 |---|---|---|
-| `Reasoning` | `none`, `low`, `medium`, `high`, `xhigh`, `max` | Requested reasoning effort; adapters clamp values to each model's supported range |
-| `Mode` | `default`, `fast` | Execution tier request; use `SupportFast` to check model support |
+| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string }` | `Name` is `provider@model`; `Token` carries `*core.CopilotToken` / `*core.CodexToken` / `*core.GrokToken` for OAuth providers |
+| `router.New` | `func(config Config) (core.Agent, error)` | Builds the Agent for the prefix; an unknown prefix containing `@` becomes `compat[<prefix>]@<model>` |
 
-`ParseReasoning` also accepts `minimal`, `extra`, and `ultra` aliases. `ParseMode` parses `default` and `fast`. `WarnFastDowngrade` logs a warning when an upstream response reports a non-fast tier.
+### Provider prefixes
 
-### Core payload types
+| Prefix | Package | Credential | Streaming | Extras |
+|---|---|---|---|---|
+| `claude@` | `core/claude` | `APIKey` | ✓ | — |
+| `openai@` | `core/openai` | `APIKey` | ✓ | Image, STT, TTS |
+| `gemini@` | `core/gemini` | `APIKey` | ✓ | Image, STT, TTS, `cachedContents` prefix cache |
+| `grok@` | `core/grok` | `APIKey` | ✓ | Image |
+| `deepseek@` | `core/deepseek` | `APIKey` | ✓ | `Usage` |
+| `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
+| `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
+| `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | `Usage` |
+| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | `Usage` |
+| `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
+| `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
+| `copilot@` | `core/copilot` | `*core.CopilotToken` | ✓ | `Usage`, `ModelInfos` |
+| `codex@` | `core/openaiCodex` | `*core.CodexToken` | ✓ | Image, `Usage` |
+| `grok-oauth@` | `core/grokOauth` | `*core.GrokToken` | ✓ | Image, `Usage` |
 
-| Type | Key fields | Purpose |
+Every provider package exposes `New(core.Config) (*Agent, error)` and `Models(ctx, core.Config, core.ModelFilter) ([]string, error)`.
+
+### Reasoning levels
+
+| Constant | String | Alias |
 |---|---|---|
-| `Message` | `Role`, `Content`, `ReasoningContent`, `ToolCalls`, `ToolCallID` | Conversation input and tool-result linkage |
-| `ContentPart` / `ImageURL` | `text` and `image_url` data | Text and image input parts |
-| `Tool` / `ToolFunction` | `Name`, `Description`, JSON `Parameters` | Function-tool definition |
-| `ToolCall` | `ID`, function `Name`, `Arguments`, `ThoughtSignature` | Provider-emitted call payload |
-| `Output` / `OutputChoices` | `Choices`, `Usage`, optional `ServiceTier` / `Error` | Normalized completion response |
-| `Usage` | `Input`, `Output`, `CacheCreate`, `CacheRead` | Normalized token accounting |
+| `ReasoningNone` | `none` | — |
+| `ReasoningLow` | `low` | `minimal` |
+| `ReasoningMedium` | `medium` (`ReasoningDefault`) | — |
+| `ReasoningHigh` | `high` | — |
+| `ReasoningXHigh` | `xhigh` | `extra` |
+| `ReasoningMax` | `max` | `ultra` |
 
-`Usage.UnmarshalJSON` combines common OpenAI- and Anthropic-style token fields and separates cache reads from billable input.
+| Function | Signature | Description |
+|---|---|---|
+| `ParseReasoning` | `func(s string) (Reasoning, bool)` | Returns `ReasoningDefault, false` when unparseable |
+| `ClampReasoning` | `func(r, lo, hi Reasoning, provider, model string) Reasoning` | Emits a debug log whenever it clamps |
+| `OpenAIEffortRange` | `func(model string) (low, high Reasoning)` | Effort range per OpenAI model generation |
 
-### Provider and router packages
+### Modes
 
-| Package | Responsibility |
+| Symbol | Signature | Description |
+|---|---|---|
+| `ModeDefault` / `ModeFast` | `Mode` | `fast` maps onto each vendor's priority tier |
+| `ParseMode` | `func(s string) (Mode, bool)` | Accepts `default` / `fast` |
+| `SupportFast` | `func(providerName, model string) bool` | Decides whether a model generation offers a fast tier |
+| `WarnFastDowngrade` | `func(providerName, model, tier string)` | Warns when the served tier is neither `fast` nor `priority` |
+
+### Model filters
+
+| Symbol | Signature | Description |
+|---|---|---|
+| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` | Multiple flags intersect |
+| `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` | Marker-based classification; `IsImageModel` excludes video models |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | Used inside each provider's `Models` |
+| `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` | Element type returned by `ModelInfos` |
+
+### Messages and output
+
+| Type | Description |
 |---|---|
-| `core/router` | Parses the provider prefix and creates the matching `core.Agent` |
-| `core/claude` | Anthropic Messages API, prompt caching, fast mode, and streaming |
-| `core/openai` | OpenAI Chat Completions or Responses API |
-| `core/gemini` | Google Gemini content conversion, schema sanitization, and cache support |
-| `core/grok` / `core/grokOauth` | xAI API-key and OAuth Responses API routes |
-| `core/copilot` | GitHub Copilot Chat or Responses API selection and streaming |
-| `core/openaiCodex` | ChatGPT Codex OAuth Responses API and image generation |
-| `core/deepseek`, `core/mistral`, `core/nvidia`, `core/openRouter`, `core/cloudflare`, `core/compat` | Additional key-based provider adapters |
-| `core/oauth/*` | Login, load, refresh, and keychain storage for OAuth credentials |
+| `Message` | `Role` / `Content` (`string` or `[]ContentPart`) / `ReasoningContent` / `ToolCalls` / `ToolCallID` |
+| `ContentPart`, `ImageURL` | `text` and `image_url` parts; `image_url` accepts a data URI |
+| `Tool`, `ToolFunction` | OpenAI-shaped tool definitions with `Parameters` as `json.RawMessage` |
+| `ToolCall` | Carries Gemini's `ThoughtSignature` |
+| `Output`, `OutputChoices` | `Choices` / `Usage` / `ServiceTier` / `Error` |
+| `Usage` | `Input` / `Output` / `CacheCreate` / `CacheRead`, with a custom `UnmarshalJSON` that absorbs each vendor's field names |
 
-### Codex image generation
+`Usage.UnmarshalJSON` adds `prompt_tokens` to `input_tokens` and `completion_tokens` to `output_tokens`, then subtracts `prompt_tokens_details.cached_tokens` from `Input` and folds it into `CacheRead` so cache hits are not billed twice.
 
-`core/openaiCodex.Agent` also provides image generation.
+### Streaming
+
+| Symbol | Description |
+|---|---|
+| `StreamEvent` | `Type` is `text` / `reasoning` / `tool_call` / `usage` / `done` / `error` |
+| `ToolCallDelta` | Streamed tool-call increment with `Index` and `ThoughtSignature` |
+| `StreamError` | Carries `Provider` / `Code` / `Body`; `errors.As` recovers the upstream status |
+| `ErrStreamUnsupported` | Wrapped in `StreamError.Err` when the upstream answers with non-SSE content |
+| `OpenStream` | `func(ctx, client, url, headers, body, label) (*http.Response, error)` |
+| `StreamChat` / `StreamResponses` | Parse Chat Completions and Responses API SSE into an event channel |
+| `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
+| `StreamBodyLimit` / `ErrorBodyLimit` / `ErrorFrameLimit` / `JSONBodyLimit` | Read caps of 64 MiB / 8 KiB / 512 B / 64 KiB |
+
+### Images
 
 ```go
-func (a *Agent) GenerateImage(
-	ctx context.Context,
-	prompt string,
-	opts ImageOptions,
-) (base64Image string, revisedPrompt string, err error)
+type ImageOptions struct {
+	AspectRatio string // "1:1" "16:9" "4:3"
+	Size        string // "1k" "2k" "4k"
+	Quality     string // "low" "medium" "high"
+	RefImageB64 string
+	RefMime     string
+}
+
+type ImageResult struct {
+	B64      string
+	MimeType string
+	Revised  string
+}
 ```
 
-`ImageOptions` supports `Size`, `Quality`, and optional base64 reference-image fields.
+| Provider | Image model | Endpoint | Result |
+|---|---|---|---|
+| `openai` | agent model, e.g. `openai@gpt-image-2` | `/v1/images/generations`, `/v1/images/edits` with a reference | PNG (`output_format`), `Revised` set |
+| `codex` | backend default | ChatGPT Codex Responses, `image_generation` tool | PNG, `Revised` set |
+| `gemini` | agent model, e.g. `gemini@gemini-3.1-flash-image` | `:generateContent` | JPEG |
+| `grok` / `grok-oauth` | agent model, e.g. `grok@grok-imagine-image-2.0` | `/v1/images/generations` and `/v1/images/edits` | JPEG |
+
+| Option | `openai` | `codex` | `gemini` | `grok` / `grok-oauth` |
+|---|---|---|---|---|
+| `AspectRatio` + `Size` | `size` as `WIDTHxHEIGHT` | ignored by the endpoint | `imageConfig.aspectRatio` / `.imageSize` | `aspect_ratio` / `resolution`, `4k` clamped to `2k` |
+| `Quality` | `quality` | ignored by the endpoint | no counterpart | `quality` |
+| `RefImageB64` | `image` file field on `/v1/images/edits` | `input_image` part | `inline_data` part | `image.url` on `/v1/images/edits` |
+
+`ImagePixelSize` applies `Size` to the **short** edge: `16:9` + `1k` becomes `1824x1024`. Scaling the long edge instead falls below the endpoint's minimum pixel budget and is rejected. The ChatGPT Codex backend always answers `1254x1254` at `quality: low`, so `codex` forwards neither option.
+
+### Audio
+
+```go
+type STTOptions struct{ Prompt, Language, MimeType string }
+type TTSOptions struct{ Voice, Format string } // wav (default) / mp3 / opus / aac / flac / pcm
+```
+
+| Provider | STT | TTS | Notes |
+|---|---|---|---|
+| `openai` | `/v1/audio/transcriptions` | `/v1/audio/speech` | Model is the agent model; default voice `alloy` |
+| `gemini` | verbatim transcript via `:generateContent` | `AUDIO` modality of `:generateContent` | Default voice `Kore`; PCM is wrapped into WAV by `WrapPCM16` |
+
+| Function | Signature | Description |
+|---|---|---|
+| `PCMRate` | `func(mime string) int` | Reads the rate from `audio/L16;rate=24000`, falling back to `24000` |
+| `WrapPCM16` | `func(pcm []byte, rate int) []byte` | Prepends a 44-byte WAV header |
+| `DataURI` | `func(mime, b64 string) string` | Defaults to `image/png` when mime is empty |
+
+### OAuth
+
+`core/oauth/copilot`, `core/oauth/codex`, and `core/oauth/grok` expose the same shape:
+
+| Function | Signature | Description |
+|---|---|---|
+| `Load` | `func() (*core.XxxToken, error)` | Reads and decodes the token from the keychain |
+| `HasToken` | `func() bool` | Reports whether a login exists |
+| `ClearToken` | `func() error` | Removes the token, legacy key included |
+| `LoginWithCallback` | `func(ctx, onCode/onURL) (*core.XxxToken, error)` | Device flow for Copilot (yields `*DeviceCode`), PKCE authorization URL for Codex and Grok |
+| `EnsureFresh` / `EnsureFreshSession` | `func(ctx, token[, refresh]) (...)` | Refreshes 60 seconds before expiry; Copilot additionally exchanges a short-lived session token |
+
+### Usage queries
+
+| Package | Signature | Return semantics |
+|---|---|---|
+| `core/openRouter` | `Usage(ctx, core.Config) (float64, error)` | Remaining credits (`total_credits - total_usage`) |
+| `core/deepseek` | same | Account balance |
+| `core/ollamaCloud` | same | Remaining monthly quota as a percentage |
+| `core/copilot` | same (needs `Token`) | Remaining percentage of chat or premium interactions |
+| `core/openaiCodex` | same (needs `APIKey`, `AccountID`) | Remaining percentage of the tighter rate-limit window |
+| `core/grokOauth` | same | Remaining credit percentage |
+
+### Miscellaneous
+
+| Symbol | Signature | Description |
+|---|---|---|
+| `NewHTTPClient` | `func() *http.Client` | 10-minute timeout; `codex` and `grok-oauth` build their own client with a 15-second response-header timeout |
+| `SupportTemperature` | `func(providerName, model string) bool` | Claude, the `gpt-5` family, `deepseek-reasoner`, and Gemini previews reject `temperature` |
+| `ResponsesAPI` | `func(providerName, model string) bool` | Chooses Responses over Chat Completions for OpenAI and Copilot |
+| `TruncateFrame` | `func(data string) string` | Caps an SSE frame in error messages at 512 bytes |
+| `summary.VoiceReply` | `func(ctx, text string) (string, error)` | Compresses text over 320 characters into a speakable reply via Gemini, using `GEMINI_API_KEY` from the keychain |
 
 ***
 
-©️ 2026 [邱敬幃 Pardn Chiu](https://pardn.io)
+©️ 2026 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)
