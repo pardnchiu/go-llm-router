@@ -16,7 +16,7 @@
 
 ***
 
-> A Go LLM router library with a unified Agent interface, multi-provider routing, and normalized token usage
+> A Go LLM router library with a unified Agent interface, a string routing factory, and cross-provider usage normalization
 
 > Extracted as a standalone package from `Agenvoy` [2741d4a](https://github.com/agenvoy/Agenvoy/commit/2741d4a3be70c5bfac1bba9e1d5d54a65db15acd)
 >
@@ -33,11 +33,11 @@
 
 > `go get github.com/pardnchiu/go-llm-router` · [Documentation](./doc/doc.md)
 
-- **Unified Agent Interface** — Ten providers share one `Send` surface so callers never write per-vendor adapters.
-- **String Routing Factory** — Build the right Agent from a `provider@model` name, with bracket tags and custom endpoints.
-- **Reasoning Level Normalization** — Map `none` through `xhigh` onto Claude thinking, Gemini budgets, OpenAI effort, and more.
-- **Cross-Provider Usage Absorption** — Fold `prompt_tokens` / `input_tokens` and cache fields into one Input / Output / Cache shape.
-- **OAuth and Image Extensions** — Built-in Copilot / Codex / Grok OAuth flows, plus Codex image generation and multimodal input.
+- **Unified Agent Interface** — Fourteen providers share one `Send` / `SendStream` contract, so callers never write per-vendor adapters.
+- **String Routing Factory** — Resolve an Agent from a `provider@model` name; an unknown prefix falls through to an OpenAI-compatible endpoint as a named instance.
+- **Reasoning Level Normalization** — Six levels from `none` to `max` map onto Claude thinking, Gemini budgets, and OpenAI effort, clamped to each model's range.
+- **Usage Field Absorption** — `prompt_tokens` / `input_tokens` and every cache variant fold into a single Input / Output / Cache shape.
+- **Multimodal and OAuth Extensions** — Built-in Copilot / Codex / Grok OAuth flows, plus image generation, speech-to-text, and text-to-speech agents.
 
 ## Architecture
 
@@ -47,12 +47,13 @@
 graph TB
     App[Caller] --> Router[router.New]
     Router --> Agent[core.Agent]
-    Agent --> Claude[Claude]
-    Agent --> OpenAI[OpenAI / Codex]
-    Agent --> Gemini[Gemini]
-    Agent --> Others[Grok / DeepSeek / Others]
-    Agent --> OAuth[oauth]
-    Agent --> Usage[Usage Normalization]
+    Agent --> KeyBased[Key-based providers]
+    Agent --> OAuthBased[OAuth providers]
+    Agent --> Compat[OpenAI-compatible endpoints]
+    OAuthBased --> OAuth[core/oauth token store]
+    Agent --> Stream[Stream event normalization]
+    Agent --> Usage[Usage normalization]
+    Agent --> Media[Image / audio agents]
 ```
 
 ## License
@@ -61,13 +62,12 @@ This project is licensed under the [MIT LICENSE](LICENSE).
 
 ## Author
 
-<img src="https://github.com/pardnchiu.png" align="left" width="96" height="96" style="margin-right: 0.5rem;">
+Just [open an issue](https://github.com/pardnchiu/go-llm-router/issues/new) to share an idea.
 
-<h4 style="padding-top: 0">邱敬幃 Pardn Chiu</h4>
-
-<a href="mailto:hi@pardn.io">hi@pardn.io</a><br>
-<a href="https://www.linkedin.com/in/pardnchiu">https://www.linkedin.com/in/pardnchiu</a>
+<a href="https://github.com/pardnchiu/go-llm-router/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-09-20" alt="go-llm-router contributors" />
+</a>
 
 ***
 
-©️ 2026 [邱敬幃 Pardn Chiu](https://pardn.io)
+©️ 2026 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)

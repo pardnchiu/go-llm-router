@@ -2,337 +2,253 @@
 
 > Back to [README](../README.md)
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Module: core](#module-core)
+- [Module: router](#module-router)
+- [Module: provider adapters](#module-provider-adapters)
+- [Module: streaming](#module-streaming)
+- [Module: oauth](#module-oauth)
+- [Module: multimodal](#module-multimodal)
+- [Module: model listing and filters](#module-model-listing-and-filters)
+- [Data Flow](#data-flow)
+- [State Machines](#state-machines)
+
 ## Overview
 
-`go-llm-router` exposes a stable Go API over multiple LLM provider protocols. Callers either create a concrete provider directly or pass a `provider@model` identifier to `core/router`. Both paths use the same message, tool, reasoning, mode, response, and streaming contracts.
+```mermaid
+graph TB
+    App[Caller] --> Router[router.New]
+    Router --> Registry[newFn prefix table]
+    Registry --> KeyAgents[Key-based agents]
+    Registry --> OAuthAgents[OAuth agents]
+    Registry --> CompatAgent[compat agent]
+
+    KeyAgents --> Core[core contracts]
+    OAuthAgents --> Core
+    CompatAgent --> Core
+
+    OAuthAgents --> OAuth[core/oauth]
+    OAuth --> Keychain[go-pkg keychain]
+
+    Core --> Stream[Stream event normalization]
+    Core --> Usage[Usage normalization]
+    Core --> Media[Image / audio interfaces]
+    Core --> HTTP[go-pkg http]
+```
+
+`core` defines contracts and shared behavior and knows no concrete provider; provider packages depend on `core` one-way and never on each other, with exactly two exceptions: `grokOauth` reuses `grok.RequestImage`, and `openaiCodex` reuses the `openai` image helpers.
+
+## Module: core
+
+Holds the Agent contract, message and usage types, and the reasoning / mode / streaming / model-classification logic every provider shares.
 
 ```mermaid
 graph TB
-    App[Caller Application]
-    Server[cmd/test]
-    Router[core/router]
-    Contract[core Agent / StreamAgent]
-    Shared[Shared Core Policies]
-    Providers[Provider Agents]
-    APIs[Provider APIs]
-    OAuth[OAuth Packages]
-    Keychain[System Keychain]
-
-    App --> Router
-    App --> Contract
-    Server --> Router
-    Router --> Contract
-    Contract --> Shared
-    Contract --> Providers
-    Providers --> APIs
-    OAuth --> Keychain
-    OAuth --> Providers
+    subgraph core
+        Type[type.go<br/>Agent / Message / Output / Usage]
+        Reasoning[reasoning.go<br/>Reasoning / ModelFilter]
+        Mode[mode.go<br/>Mode / SupportFast]
+        Provider[provider.go<br/>SupportTemperature / ResponsesAPI]
+        Stream[stream.go<br/>OpenStream / StreamChat / StreamResponses]
+        SSE[sse.go<br/>ScanSSE]
+        Image[image.go<br/>ImageAgent / ImagePixelSize]
+        Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
+    end
+    Stream --> SSE
+    Image --> Type
+    Audio --> Type
+    Reasoning --> Type
 ```
 
-| Layer | Packages | Responsibility |
-|---|---|---|
-| Caller | Application code, `cmd/test` | Build messages and tools; choose model, reasoning, mode, and synchronous or streaming consumption |
-| Router | `core/router` | Parse a provider name and construct the matching `core.Agent` |
-| Shared core | `core` | Define transport-neutral types, reasoning and fast-mode policy, and HTTP client defaults |
-| Provider adapter | `core/<provider>` | Authenticate, convert payloads, select provider endpoints, and normalize responses |
-| OAuth | `core/oauth/*` | Login, token storage, expiry checks, and refresh paths |
-
-## Module: Core Contracts
-
-`core/type.go` is the public cross-provider boundary. Adapters return normalized `Output`, `Usage`, and `StreamEvent` values rather than native upstream responses.
-
-```mermaid
-classDiagram
-    class Agent {
-        <<interface>>
-        +Name() string
-        +Send(ctx, messages, toolDefs, reasoning, mode) Output, int, error
-    }
-    class StreamAgent {
-        <<interface>>
-        +SendStream(ctx, messages, toolDefs, reasoning, mode) channel StreamEvent, error
-    }
-    class Message {
-        +string Role
-        +any Content
-        +string ReasoningContent
-        +ToolCall[] ToolCalls
-        +string ToolCallID
-    }
-    class Tool {
-        +string Type
-        +ToolFunction Function
-    }
-    class Output {
-        +OutputChoices[] Choices
-        +Usage Usage
-        +string ServiceTier
-    }
-    class StreamEvent {
-        +StreamEventType Type
-        +string TextDelta
-        +string ReasoningDelta
-        +ToolCallDelta ToolCall
-        +Usage Usage
-        +string FinishReason
-        +error Err
-    }
-
-    Agent --> Message
-    Agent --> Tool
-    Agent --> Output
-    StreamAgent --> StreamEvent
-    Output --> Usage
-```
-
-| Type | Role |
+| File | Responsibility |
 |---|---|
-| `Message` | A text or multipart conversation item, including reasoning, tool calls, and tool-result linkage |
-| `Tool` / `ToolFunction` | OpenAI-style function definition with JSON Schema parameters |
-| `Output` / `OutputChoices` | Normalized non-streaming response, finish reason, usage, optional service tier, and error payload |
-| `Usage` | Unified input, output, cache-creation, and cache-read token counters |
-| `StreamEvent` | Typed text, reasoning, tool-call, usage, completion, and error deltas |
-| `Config` | Shared model, credential, custom endpoint, and Cloudflare account/gateway construction settings |
+| `type.go` | `Agent` / `StreamAgent` interfaces, message and tool types, cross-provider field absorption in `Usage.UnmarshalJSON` |
+| `reasoning.go` | Six reasoning levels, alias parsing, `ClampReasoning`, marker-based model classification and `ModelFilter` |
+| `mode.go` | `default` / `fast` modes and per-vendor fast-tier support |
+| `provider.go` | `temperature` support, Responses API routing, the shared HTTP client |
+| `stream.go` / `sse.go` | SSE scanning, event normalization for both stream formats, error wrapping and read caps |
+| `image.go` / `audio.go` | Optional multimodal interfaces plus pure helpers for sizing, sample rate, and WAV framing |
 
-## Module: Router
+## Module: router
 
-`router.New` gets the substring before `@`, removes any `[tag]`, looks up the provider factory, and returns a unified Agent. Unknown provider keys return an error.
-
-```mermaid
-flowchart LR
-    Name[router.Config.Name]
-    Prefix[Split at @]
-    Tag[Drop Optional Bracket Tag]
-    Lookup{newFn entry?}
-    Error[unknown provider error]
-    Factory[Provider New]
-    Agent[core.Agent]
-
-    Name --> Prefix --> Tag --> Lookup
-    Lookup -->|no| Error
-    Lookup -->|yes| Factory --> Agent
-```
-
-| Provider key | Constructor | Required configuration |
-|---|---|---|
-| `claude`, `openai`, `gemini`, `grok`, `deepseek`, `mistral`, `nvidia`, `openrouter` | Matching package `New` | `APIKey` |
-| `cloudflare` | `cloudflare.New` | `APIKey`, `AccountID`, `GatewayID` |
-| `compat` | `compat.New` | `BaseURL`; optional `APIKey` |
-| `copilot`, `codex`, `grok-oauth` | OAuth-backed package `New` | `Token` |
-
-## Module: Request Policy
-
-The core standardizes call parameters but deliberately leaves wire payloads to adapters.
-
-```mermaid
-flowchart TB
-    Call[Send or SendStream]
-    Reasoning[Reasoning]
-    Mode[Mode]
-    Capability[Provider / Model Capability]
-    Shape[Provider Payload Conversion]
-    Transport[JSON HTTP or SSE]
-    Normalize[Output or StreamEvent]
-
-    Call --> Reasoning
-    Call --> Mode
-    Reasoning --> Capability --> Shape
-    Mode --> Capability
-    Shape --> Transport --> Normalize
-```
-
-### Reasoning
-
-`Reasoning` supports `none`, `low`, `medium`, `high`, `xhigh`, and `max`; `medium` is the default. `ParseReasoning` also accepts `minimal`, `extra`, and `ultra`. Provider adapters use range and effort helpers, including `ClampReasoning` and `OpenAIEffortRange`, before formatting native controls.
-
-### Fast Mode
-
-`ModeFast` is a capability request, not a universal guarantee. `core.SupportFast` checks the provider/model pair, while `core.WarnFastDowngrade` logs any returned downgrade.
-
-| Provider route | Native fast-mode control |
-|---|---|
-| Claude | `speed: "fast"` and the fast-mode beta header |
-| OpenAI | `service_tier: "fast"` |
-| Grok and Grok OAuth | `service_tier: "priority"` |
-| OpenRouter | `service_tier: "priority"` for supported routed models |
-| Other adapters | No fast-tier field currently added |
-
-## Module: Provider Adapters
-
-Each adapter owns system-prompt handling, message and tool conversion, authentication, endpoint selection, and upstream response decoding.
+The single assembly point: it turns a `provider@model` string into a concrete Agent.
 
 ```mermaid
 graph TB
-    Core[core.Message / core.Tool]
-    Convert[Provider Converter]
-    Chat[Chat Completions APIs]
-    Responses[Responses APIs]
-    Native[Native Provider APIs]
-    Upstream[Response / SSE]
-    Result[core.Output / StreamEvent]
-
-    Core --> Convert
-    Convert --> Chat
-    Convert --> Responses
-    Convert --> Native
-    Chat --> Upstream
-    Responses --> Upstream
-    Native --> Upstream
-    Upstream --> Result
+    Name["Name: provider@model"] --> Cut[Split prefix and model]
+    Cut --> Lookup{Prefix in newFn?}
+    Lookup -- yes --> Build[Call its constructor]
+    Lookup -- "no, but has @" --> Rewrite["Rewrite to compat[prefix]@model"]
+    Lookup -- "no, no @" --> Err[unknown provider error]
+    Rewrite --> Build
+    Build --> Agent[core.Agent]
 ```
 
-| Module | API form | Implementation focus |
+Prefixes also carry a bracketed instance name (`compat[lmstudio]@model`); `compatPrefix` extracts it and it becomes the Agent's `Name()` prefix, so one compat adapter can represent several endpoints at once.
+
+## Module: provider adapters
+
+Every provider package uses the same file layout; only the conversion logic differs.
+
+```mermaid
+graph TB
+    subgraph provider
+        New[new.go<br/>Agent struct / Prefix / Name]
+        Send[send.go<br/>Message conversion / non-stream request]
+        StreamFile[stream.go<br/>Streaming request]
+        Models[models.go<br/>Model listing + filter]
+        ReasoningFile[reasoning.go<br/>ReasoningLimits]
+        Extra[usage.go / image.go / audio.go<br/>Optional capabilities]
+    end
+    New --> Send
+    New --> StreamFile
+    Send --> CoreHTTP[core / go-pkg http]
+    StreamFile --> CoreStream[core.OpenStream]
+    Models --> Filter[core.MatchModelFilter]
+```
+
+| Group | Packages | Wire format |
 |---|---|---|
-| `claude` | Anthropic Messages | Tool/image conversion, prompt caching, thinking, fast mode, and public streaming |
-| `openai` | Chat Completions or Responses | Model-driven endpoint choice, `instructions`, reasoning effort, and fast tier |
-| `gemini` | `generateContent` | Content and function-declaration conversion, cache support, schema cleanup, and synthetic-skill rewrite |
-| `grok` | Chat Completions | Reasoning effort and priority service tier |
-| `grokOauth` | Responses via SSE | OAuth authentication and internal SSE assembly into one output |
-| `copilot` | Chat Completions or Responses | Endpoint-capability lookup/cache, OAuth authentication, and public streaming |
-| `openaiCodex` | ChatGPT Codex Responses via SSE | OAuth authentication, prompt-cache key, internal SSE assembly, and image generation |
-| `deepseek` | Chat Completions | System-prompt merge and assistant reasoning placeholder |
-| `mistral` | Chat Completions | Thinking-part flattening and two-level reasoning effort |
-| `nvidia` | Chat Completions | System-prompt merge and reasoning-effort mapping |
-| `openRouter` | Chat Completions | Reasoning-detail preservation and supported priority tier |
-| `cloudflare` | Workers AI Run | Content flattening and account/gateway request configuration |
-| `compat` | Custom Chat Completions | Standard OpenAI-style payload to a supplied base URL |
+| OpenAI-compatible | `openai`, `deepseek`, `mistral`, `nvidia`, `openRouter`, `ollamaCloud`, `cloudflare`, `compat` | Chat Completions; newer OpenAI generations switch to Responses |
+| Anthropic | `claude` | Messages API with thinking-budget conversion |
+| Google | `gemini` | `:generateContent` with schema sanitization and `cachedContents` |
+| xAI | `grok`, `grokOauth` | Responses API plus the image endpoints |
+| OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal Responses endpoints requiring a session token |
 
-## Module: Public Streaming
+## Module: streaming
 
-Providers that implement `core.StreamAgent` translate upstream SSE events to common event values. The caller can use a type assertion without depending on provider-specific event names.
-
-```mermaid
-sequenceDiagram
-    participant Client as Caller
-    participant Agent as StreamAgent
-    participant API as Provider SSE API
-
-    Client->>Agent: SendStream(ctx, messages, tools, reasoning, mode)
-    Agent->>API: POST stream=true
-    API-->>Agent: text delta
-    Agent-->>Client: StreamEventText
-    API-->>Agent: reasoning delta
-    Agent-->>Client: StreamEventReasoning
-    API-->>Agent: tool-call delta
-    Agent-->>Client: StreamEventToolCall
-    API-->>Agent: usage and completion
-    Agent-->>Client: StreamEventUsage and StreamEventDone
-```
-
-| Event | Meaning |
-|---|---|
-| `text` | Output-text delta |
-| `reasoning` | Reasoning-summary or reasoning-text delta |
-| `tool_call` | Tool-call ID, name, or argument fragment |
-| `usage` | Normalized token counters |
-| `done` | Completion reason such as `stop` or `tool_calls` |
-| `error` | Upstream, read, or decode error |
-
-Claude and Copilot expose `SendStream`. Codex and Grok OAuth consume provider SSE inside their public `Send` implementation, then return a completed `core.Output`.
-
-## Module: OAuth Lifecycle
-
-OAuth adapters persist JSON token values in the operating-system keychain. Codex and Grok expiry checks use a 60-second safety buffer, then refresh and persist a replacement token when needed.
-
-```mermaid
-stateDiagram-v2
-    [*] --> Missing: no stored token
-    Missing --> Authorizing: LoginWithCallback
-    Authorizing --> Active: exchange succeeds
-    Active --> Active: Load valid token
-    Active --> Expired: expiry safety window
-    Expired --> Refreshing: EnsureFresh
-    Refreshing --> Active: save refreshed token
-    Refreshing --> Missing: refresh fails or ClearToken
-    Active --> Missing: ClearToken
-```
+Both upstream formats collapse onto one event type, so callers never tell them apart.
 
 ```mermaid
 graph LR
-    Login[LoginWithCallback]
-    Exchange[Authorization-code Exchange]
-    Token[core Token]
-    Store[System Keychain]
-    Load[Load / HasToken]
-    Fresh[EnsureFresh]
-    Refresh[Refresh Grant]
-    Agent[OAuth Provider Agent]
-
-    Login --> Exchange --> Token --> Store
-    Store --> Load --> Fresh
-    Fresh -->|valid| Agent
-    Fresh -->|expired| Refresh --> Token
+    Req[OpenStream] --> Check{Content-Type}
+    Check -- text/event-stream --> Scan[ScanSSE]
+    Check -- anything else --> Unsupported[StreamError + ErrStreamUnsupported]
+    Scan --> Chat[StreamChat<br/>Chat Completions]
+    Scan --> Responses[StreamResponses<br/>Responses API]
+    Chat --> Events[StreamEvent channel]
+    Responses --> Events
+    Events --> Text[text]
+    Events --> Reason[reasoning]
+    Events --> Tool[tool_call]
+    Events --> UsageEvt[usage]
+    Events --> Done[done / error]
 ```
 
-| OAuth package | Token type | Primary key |
-|---|---|---|
-| `core/oauth/copilot` | `core.CopilotToken` | `COPILOT_OAUTH_TOKEN`, plus legacy compatibility |
-| `core/oauth/codex` | `core.CodexToken` | `CODEX_OAUTH_TOKEN`, plus `agenvoy.codex.token` compatibility |
-| `core/oauth/grok` | `core.GrokToken` | `GROK_OAUTH_TOKEN`, plus `agenvoy.grok-oauth.token` compatibility |
+Bodies are capped by a 64 MiB `io.LimitReader`, frames quoted in errors at 512 bytes, and error bodies at 8 KiB.
 
-## Module: HTTP-Compatible Test Server
+## Module: oauth
 
-`cmd/test` is a manual OpenAI-compatible wrapper, not a production gateway. It validates the request, resolves credentials from environment variables, constructs a router Agent, and returns JSON or OpenAI-style SSE chunks.
+All three OAuth providers share one flow skeleton and store tokens in the keychain.
+
+```mermaid
+graph TB
+    subgraph oauth
+        Login[LoginWithCallback<br/>device flow / PKCE]
+        Store[Load / HasToken / ClearToken]
+        Fresh[EnsureFresh / EnsureFreshSession]
+    end
+    Login --> Keychain[(keychain)]
+    Store --> Keychain
+    Fresh --> Keychain
+    Fresh --> Agent[Agent.authHeader]
+    Agent --> Upstream[Provider endpoint]
+```
+
+`Load` reads the current key first and falls back to the legacy `agenvoy.*` key; Copilot adds one more exchange for a short-lived session token.
+
+## Module: multimodal
+
+```mermaid
+graph TB
+    ImageAgent[core.ImageAgent] --> OpenAIImg[openai<br/>/v1/images/*]
+    ImageAgent --> CodexImg[codex<br/>Responses image_generation]
+    ImageAgent --> GeminiImg[gemini<br/>:generateContent]
+    ImageAgent --> GrokImg[grok / grok-oauth<br/>/v1/images/*]
+    STT[core.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
+    STT --> GeminiSTT[gemini<br/>verbatim transcript]
+    TTS[core.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
+    TTS --> GeminiTTS[gemini<br/>AUDIO modality + WrapPCM16]
+```
+
+Image and audio models are the agent model; `codex` alone generates from its chat model on the backend.
+
+## Module: model listing and filters
+
+```mermaid
+graph LR
+    Models[provider.Models] --> Fetch[Fetch the provider's model list]
+    Fetch --> Match[core.MatchModelFilter]
+    Match --> TextOnly[TextOnly]
+    Match --> STTOnly[STTOnly]
+    Match --> TTSOnly[TTSOnly]
+    Match --> ImageOnly[ImageOnly]
+    ImageOnly --> NoVideo[Excludes video markers]
+    Match --> IDs["[]string of model IDs"]
+    Fetch --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
+```
+
+Cloudflare is the exception: it filters on the Workers AI task name (`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`) rather than on model-ID markers.
+
+## Data Flow
 
 ```mermaid
 sequenceDiagram
-    participant Client as HTTP Client
-    participant Server as cmd/test
-    participant Config as resolveConfig
+    participant Caller
     participant Router as router.New
-    participant Agent as Agent or StreamAgent
-    participant API as Provider API
+    participant Agent as provider.Agent
+    participant Core as core
+    participant API as Provider endpoint
 
-    Client->>Server: POST /v1/chat/completions
-    Server->>Server: validate model, reasoning, mode
-    Server->>Config: read provider environment
-    Config-->>Server: router.Config
-    Server->>Router: construct Agent
-    Router-->>Server: core.Agent
-    alt stream is false
-        Server->>Agent: Send
-        Agent->>API: JSON request
-        API-->>Agent: response
-        Agent-->>Server: core.Output
-        Server-->>Client: JSON
-    else stream is true
-        Server->>Agent: SendStream
-        Agent->>API: SSE request
-        API-->>Agent: events
-        Server-->>Client: SSE chunks and [DONE]
+    Caller->>Router: Config{Name, APIKey/Token}
+    Router-->>Caller: core.Agent
+    Caller->>Agent: Send / SendStream
+    Agent->>Core: ClampReasoning / SupportFast / SupportTemperature
+    Agent->>Agent: Convert messages and tools
+    Agent->>API: HTTP request
+    alt Streaming
+        API-->>Agent: SSE frames
+        Agent->>Core: StreamChat / StreamResponses
+        Core-->>Caller: StreamEvent channel
+    else Non-streaming
+        API-->>Agent: JSON
+        Agent->>Core: Usage.UnmarshalJSON
+        Agent-->>Caller: Output + status code
     end
 ```
 
-| Item | Value |
-|---|---|
-| Default port | `8787`; override with `PORT` |
-| Endpoint | `POST /v1/chat/completions` |
-| Non-streaming | `Agent.Send` returns JSON `core.Output` |
-| Streaming | `StreamAgent.SendStream` is translated to `text/event-stream` |
-| `make test` | `go run ./cmd/test` |
-| `make build` | `go build ./...` |
-| `make vet` | `go vet ./...` |
+## State Machines
 
-## End-to-End Data Flow
+OAuth token lifecycle:
 
 ```mermaid
-flowchart TB
-    Input[Messages and Tools]
-    Config[router.Config]
-    Route[router.New]
-    Policy[Reasoning and Mode]
-    Agent[Provider Agent]
-    Shape[Message Tool Credential Conversion]
-    Transport[JSON or SSE HTTP]
-    Remote[Provider Model]
-    Normalize[Output or StreamEvent]
-    Consumer[Caller]
+stateDiagram-v2
+    [*] --> LoggedOut
+    LoggedOut --> LoggedIn: LoginWithCallback
+    LoggedIn --> Valid: EnsureFresh (not expired)
+    LoggedIn --> Refreshing: less than 60s to expiry
+    Refreshing --> Valid: refresh succeeded
+    Refreshing --> LoggedOut: refresh failed
+    Valid --> LoggedIn: next request
+    LoggedIn --> LoggedOut: ClearToken
+```
 
-    Input --> Config --> Route --> Agent
-    Policy --> Agent
-    Agent --> Shape --> Transport --> Remote --> Normalize --> Consumer
+Stream event lifecycle:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Connecting
+    Connecting --> Streaming: Content-Type is text/event-stream
+    Connecting --> Failed: non-SSE or upstream error
+    Streaming --> Streaming: text / reasoning / tool_call / usage
+    Streaming --> Completed: done
+    Streaming --> Failed: error frame
+    Completed --> [*]
+    Failed --> [*]
 ```
 
 ***
 
-©️ 2026 [邱敬幃 Pardn Chiu](https://pardn.io)
+©️ 2026 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)
