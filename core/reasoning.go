@@ -137,9 +137,10 @@ func leadingInt(text string) (int, bool) {
 }
 
 type ModelFilter struct {
-	TextOnly bool
-	STTOnly  bool
-	TTSOnly  bool
+	TextOnly  bool
+	STTOnly   bool
+	TTSOnly   bool
+	ImageOnly bool
 }
 
 var nonTextMarkers = []string{
@@ -157,6 +158,14 @@ var sttMarkers = []string{
 
 var ttsMarkers = []string{
 	"-tts", "tts-",
+}
+
+var imageMarkers = []string{
+	"-image", "image-", "imagen-", "imagine-", "nano-banana",
+}
+
+var videoMarkers = []string{
+	"-video", "video-", "veo-", "sora-",
 }
 
 var nonHTTPMarkers = []string{
@@ -184,6 +193,10 @@ func IsTTSModel(id string) bool {
 	return !containsAny(id, nonHTTPMarkers) && containsAny(id, ttsMarkers)
 }
 
+func IsImageModel(id string) bool {
+	return !containsAny(id, nonHTTPMarkers) && !containsAny(id, videoMarkers) && containsAny(id, imageMarkers)
+}
+
 func MatchModelFilter(id string, filter ModelFilter) bool {
 	if filter.TextOnly && !IsTextModel(id) {
 		return false
@@ -192,6 +205,9 @@ func MatchModelFilter(id string, filter ModelFilter) bool {
 		return false
 	}
 	if filter.TTSOnly && !IsTTSModel(id) {
+		return false
+	}
+	if filter.ImageOnly && !IsImageModel(id) {
 		return false
 	}
 	return true

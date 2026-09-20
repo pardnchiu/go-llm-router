@@ -10,8 +10,6 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-const imageModel = "gemini-3.1-flash-image"
-
 type imageResponse struct {
 	Candidates []struct {
 		Content struct {
@@ -58,7 +56,7 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.Imag
 		body["generationConfig"] = map[string]any{"imageConfig": imageConfig}
 	}
 
-	endpoint := baseAPI + imageModel + ":generateContent"
+	endpoint := baseAPI + a.model + ":generateContent"
 	result, code, err := go_pkg_http.POST[imageResponse](ctx, a.httpClient, endpoint, a.headers(), body, "json")
 	if err != nil {
 		return nil, err

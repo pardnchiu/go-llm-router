@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strings"
 
 	"github.com/pardnchiu/go-llm-router/core"
+	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const (
@@ -25,56 +25,32 @@ func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts core.STTOptio
 		return nil, fmt.Errorf("openai.Transcribe: audio is empty")
 	}
 
-	var body bytes.Buffer
-	form := multipart.NewWriter(&body)
-	part, err := form.CreateFormFile("file", "audio"+audioExt(opts.MimeType))
-	if err != nil {
-		return nil, fmt.Errorf("multipart.CreateFormFile: %w", err)
+	body := map[string]any{
+		"model": a.model,
+		"file": go_pkg_http.File{
+			Name:        "audio" + audioExt(opts.MimeType),
+			ContentType: opts.MimeType,
+			Data:        audio,
+		},
 	}
-	if _, err := part.Write(audio); err != nil {
-		return nil, fmt.Errorf("part.Write: %w", err)
-	}
-	fields := map[string]string{"model": a.model}
 	if opts.Language != "" {
-		fields["language"] = opts.Language
+		body["language"] = opts.Language
 	}
 	if opts.Prompt != "" {
-		fields["prompt"] = opts.Prompt
-	}
-	for key, value := range fields {
-		if err := form.WriteField(key, value); err != nil {
-			return nil, fmt.Errorf("form.WriteField: %w", err)
-		}
-	}
-	if err := form.Close(); err != nil {
-		return nil, fmt.Errorf("form.Close: %w", err)
+		body["prompt"] = opts.Prompt
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, transcriptionAPI, &body)
-	if err != nil {
-		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+a.apiKey)
-	req.Header.Set("Content-Type", form.FormDataContentType())
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("httpClient.Do: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return nil, fmt.Errorf("openai transcriptions: http %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
-	}
-
-	var out struct {
+	headers := map[string]string{"Authorization": "Bearer " + a.apiKey}
+	result, code, err := go_pkg_http.POST[struct {
 		Text string `json:"text"`
+	}](ctx, a.httpClient, transcriptionAPI, headers, body, "multipart")
+	if err != nil {
+		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POST: %w", err)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("json.Decode: %w", err)
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("openai transcriptions: http %d", code)
 	}
-	return &core.STTResult{Text: strings.TrimSpace(out.Text)}, nil
+	return &core.STTResult{Text: strings.TrimSpace(result.Text)}, nil
 }
 
 func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*core.TTSResult, error) {
