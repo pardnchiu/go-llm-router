@@ -341,7 +341,7 @@ The import path is `github.com/pardnchiu/go-llm-router/core`; the package it dec
 | `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
 | `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
 | `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | `Usage` |
-| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | `Usage` |
+| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | Image, STT, TTS, `Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
 | `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`, `ModelInfos` |
@@ -382,8 +382,17 @@ Every provider package exposes `New(llmrouter.Config) (*Agent, error)` and `Mode
 |---|---|---|
 | `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` | Multiple flags intersect |
 | `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` | Marker-based classification; `IsImageModel` excludes video models |
-| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | Used inside each provider's `Models` |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | Used by the `openai`, `gemini`, `grok`, and `grok-oauth` listings |
 | `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` | Element type returned by `ModelInfos` |
+
+Flag support differs per provider; an unsupported flag is ignored rather than rejected:
+
+| Provider | `TextOnly` | `STTOnly` | `TTSOnly` | `ImageOnly` | Source |
+|---|---|---|---|---|---|
+| `openai`, `gemini`, `grok`, `grok-oauth` | ✓ | ✓ | ✓ | ✓ | model-ID markers |
+| `openrouter` | ✓ | ✓ | ✓ | ✓ | `/api/v1/images/models`, `/api/v1/models?output_modalities=speech` / `transcription` |
+| `cloudflare` | ✓ | ✓ | ✓ | — | Workers AI task name |
+| `claude`, `copilot`, `deepseek`, `mistral`, `nvidia`, `ollama-cloud`, `codex` | ✓ | — | — | — | model-ID markers |
 
 ### Messages and output
 
@@ -435,12 +444,13 @@ type ImageResult struct {
 | `codex` | backend default | ChatGPT Codex Responses, `image_generation` tool | PNG, `Revised` set |
 | `gemini` | agent model, e.g. `gemini@gemini-3.1-flash-image` | `:generateContent` | JPEG |
 | `grok` / `grok-oauth` | agent model, e.g. `grok@grok-imagine-image-2.0` | `/v1/images/generations` and `/v1/images/edits` | JPEG |
+| `openrouter` | agent model, e.g. `openrouter@google/gemini-2.5-flash-image` | `/api/v1/images` | `media_type` from the response |
 
-| Option | `openai` | `codex` | `gemini` | `grok` / `grok-oauth` |
-|---|---|---|---|---|
-| `AspectRatio` + `Size` | `size` as `WIDTHxHEIGHT` | ignored by the endpoint | `imageConfig.aspectRatio` / `.imageSize` | `aspect_ratio` / `resolution`, `4k` clamped to `2k` |
-| `Quality` | `quality` | ignored by the endpoint | no counterpart | `quality` |
-| `RefImageB64` | `image` file field on `/v1/images/edits` | `input_image` part | `inline_data` part | `image.url` on `/v1/images/edits` |
+| Option | `openai` | `codex` | `gemini` | `grok` / `grok-oauth` | `openrouter` |
+|---|---|---|---|---|---|
+| `AspectRatio` + `Size` | `size` as `WIDTHxHEIGHT` | ignored by the endpoint | `imageConfig.aspectRatio` / `.imageSize` | `aspect_ratio` / `resolution`, `4k` clamped to `2k` | `aspect_ratio` / `resolution` |
+| `Quality` | `quality` | ignored by the endpoint | no counterpart | `quality` | `quality` |
+| `RefImageB64` | `image` file field on `/v1/images/edits` | `input_image` part | `inline_data` part | `image.url` on `/v1/images/edits` | `input_references` data URL |
 
 `ImagePixelSize` applies `Size` to the **short** edge: `16:9` + `1k` becomes `1824x1024`. Scaling the long edge instead falls below the endpoint's minimum pixel budget and is rejected. The ChatGPT Codex backend always answers `1254x1254` at `quality: low`, so `codex` forwards neither option.
 
@@ -454,6 +464,7 @@ type TTSOptions struct{ Voice, Format string } // wav (default) / mp3 / opus / a
 | Provider | STT | TTS | Notes |
 |---|---|---|---|
 | `openai` | `/v1/audio/transcriptions` | `/v1/audio/speech` | Model is the agent model; default voice `alloy` |
+| `openrouter` | multipart `/api/v1/audio/transcriptions` | `/api/v1/audio/speech` | An empty `Voice` resolves to the first `supported_voices` entry of the model in the OpenRouter catalog; a voice outside that list fails locally with the valid list; only `mp3` passes through, every other `Format` requests `pcm` and returns WAV via `WrapPCM16` |
 | `gemini` | verbatim transcript via `:generateContent` | `AUDIO` modality of `:generateContent` | Default voice `Kore`; PCM is wrapped into WAV by `WrapPCM16` |
 
 | Function | Signature | Description |

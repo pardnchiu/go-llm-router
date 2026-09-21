@@ -106,7 +106,7 @@ graph TB
     New --> StreamFile
     Send --> CoreHTTP[core / go-pkg http]
     StreamFile --> CoreStream[llmrouter.OpenStream]
-    Models --> Filter[llmrouter.MatchModelFilter]
+    Models --> Filter[ModelFilter]
 ```
 
 | Group | Packages | Wire format |
@@ -167,10 +167,13 @@ graph TB
     ImageAgent --> CodexImg[codex<br/>Responses image_generation]
     ImageAgent --> GeminiImg[gemini<br/>:generateContent]
     ImageAgent --> GrokImg[grok / grok-oauth<br/>/v1/images/*]
+    ImageAgent --> OpenRouterImg[openrouter<br/>/api/v1/images]
     STT[llmrouter.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
     STT --> GeminiSTT[gemini<br/>verbatim transcript]
+    STT --> OpenRouterSTT[openrouter<br/>/api/v1/audio/transcriptions]
     TTS[llmrouter.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
     TTS --> GeminiTTS[gemini<br/>AUDIO modality + WrapPCM16]
+    TTS --> OpenRouterTTS[openrouter<br/>/api/v1/audio/speech + WrapPCM16]
 ```
 
 Image and audio models are the agent model; `codex` alone generates from its chat model on the backend.
@@ -179,18 +182,17 @@ Image and audio models are the agent model; `codex` alone generates from its cha
 
 ```mermaid
 graph LR
-    Models[provider.Models] --> Fetch[Fetch the provider's model list]
-    Fetch --> Match[llmrouter.MatchModelFilter]
-    Match --> TextOnly[TextOnly]
-    Match --> STTOnly[STTOnly]
-    Match --> TTSOnly[TTSOnly]
-    Match --> ImageOnly[ImageOnly]
-    ImageOnly --> NoVideo[Excludes video markers]
-    Match --> IDs["[]string of model IDs"]
-    Fetch --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
+    Models[provider.Models] --> Markers[Model-ID markers<br/>llmrouter.MatchModelFilter]
+    Models --> Catalog[Vendor catalogs]
+    Models --> TextOnlyOnly[TextOnly only<br/>llmrouter.IsTextModel]
+    Markers --> MarkerProviders[openai / gemini / grok / grok-oauth<br/>all four flags; ImageOnly excludes video]
+    Catalog --> OpenRouterCat[openrouter<br/>/images/models, ?output_modalities=speech / transcription]
+    Catalog --> CloudflareCat[cloudflare<br/>Workers AI task name]
+    TextOnlyOnly --> TextProviders[claude / copilot / deepseek / mistral / nvidia / ollama-cloud / codex]
+    Models --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
 ```
 
-Cloudflare is the exception: it filters on the Workers AI task name (`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`) rather than on model-ID markers.
+Three strategies coexist. `openai`, `gemini`, `grok`, and `grok-oauth` classify model IDs with `MatchModelFilter`, honoring all four flags. `openrouter` reads its own catalogs: `ImageOnly` from `/api/v1/images/models` (the exact catalog `/api/v1/images` accepts), `TTSOnly` / `STTOnly` from `/api/v1/models?output_modalities=speech` / `transcription`. `cloudflare` filters on the Workers AI task name (`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`) and ignores `ImageOnly`. Every other provider honors only `TextOnly`.
 
 ## Data Flow
 

@@ -341,7 +341,7 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 | `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
 | `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
 | `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | `Usage` |
-| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | `Usage` |
+| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | 圖片、STT、TTS、`Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
 | `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`、`ModelInfos` |
@@ -382,8 +382,17 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 |---|---|---|
 | `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` | 多個條件同時成立時取交集 |
 | `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` | 依模型 ID 標記判斷；`IsImageModel` 排除 video 模型 |
-| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | 供應商 `Models` 內部使用 |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | `openai`、`gemini`、`grok`、`grok-oauth` 的清單使用 |
 | `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` | `ModelInfos` 的回傳元素 |
+
+各供應商支援的旗標不同，不支援的旗標會被忽略而非報錯：
+
+| 供應商 | `TextOnly` | `STTOnly` | `TTSOnly` | `ImageOnly` | 來源 |
+|---|---|---|---|---|---|
+| `openai`、`gemini`、`grok`、`grok-oauth` | ✓ | ✓ | ✓ | ✓ | 模型 ID 標記 |
+| `openrouter` | ✓ | ✓ | ✓ | ✓ | `/api/v1/images/models`、`/api/v1/models?output_modalities=speech` / `transcription` |
+| `cloudflare` | ✓ | ✓ | ✓ | — | Workers AI task 名稱 |
+| `claude`、`copilot`、`deepseek`、`mistral`、`nvidia`、`ollama-cloud`、`codex` | ✓ | — | — | — | 模型 ID 標記 |
 
 ### 訊息與輸出
 
@@ -435,12 +444,13 @@ type ImageResult struct {
 | `codex` | 後端預設 | ChatGPT Codex Responses 的 `image_generation` 工具 | PNG，含 `Revised` |
 | `gemini` | agent 模型，如 `gemini@gemini-3.1-flash-image` | `:generateContent` | JPEG |
 | `grok` / `grok-oauth` | agent 模型，如 `grok@grok-imagine-image-2.0` | `/v1/images/generations` 與 `/v1/images/edits` | JPEG |
+| `openrouter` | agent 模型，如 `openrouter@google/gemini-2.5-flash-image` | `/api/v1/images` | 依回應的 `media_type` |
 
-| 選項 | `openai` | `codex` | `gemini` | `grok` / `grok-oauth` |
-|---|---|---|---|---|
-| `AspectRatio` + `Size` | `size` 的 `WIDTHxHEIGHT` | 端點忽略 | `imageConfig.aspectRatio` / `.imageSize` | `aspect_ratio` / `resolution`，`4k` 收斂為 `2k` |
-| `Quality` | `quality` | 端點忽略 | 無對應 | `quality` |
-| `RefImageB64` | `/v1/images/edits` 的 `image` 檔案欄位 | `input_image` 內容部分 | `inline_data` 部分 | `/v1/images/edits` 的 `image.url` |
+| 選項 | `openai` | `codex` | `gemini` | `grok` / `grok-oauth` | `openrouter` |
+|---|---|---|---|---|---|
+| `AspectRatio` + `Size` | `size` 的 `WIDTHxHEIGHT` | 端點忽略 | `imageConfig.aspectRatio` / `.imageSize` | `aspect_ratio` / `resolution`，`4k` 收斂為 `2k` | `aspect_ratio` / `resolution` |
+| `Quality` | `quality` | 端點忽略 | 無對應 | `quality` | `quality` |
+| `RefImageB64` | `/v1/images/edits` 的 `image` 檔案欄位 | `input_image` 內容部分 | `inline_data` 部分 | `/v1/images/edits` 的 `image.url` | `input_references` 的 data URL |
 
 `ImagePixelSize` 以 `Size` 設定**短邊**：`16:9` + `1k` 得到 `1824x1024`；改放長邊會低於端點的最小像素預算而被拒絕。ChatGPT Codex 後端固定回 `1254x1254` 且 `quality: low`，因此 `codex` 兩項都不送。
 
@@ -454,6 +464,7 @@ type TTSOptions struct{ Voice, Format string } // wav（預設）/ mp3 / opus / 
 | 供應商 | STT | TTS | 備註 |
 |---|---|---|---|
 | `openai` | `/v1/audio/transcriptions` | `/v1/audio/speech` | 模型即 agent 模型，預設聲音 `alloy` |
+| `openrouter` | multipart `/api/v1/audio/transcriptions` | `/api/v1/audio/speech` | `Voice` 留空時取 OpenRouter 目錄中該模型 `supported_voices` 的第一個；不在清單內的 voice 直接在本地回錯並列出合法清單；只有 `mp3` 直接回傳，其餘 `Format` 一律請求 `pcm` 並經 `WrapPCM16` 輸出 WAV |
 | `gemini` | `:generateContent` 逐字轉寫 | `:generateContent` 的 `AUDIO` 模態 | 預設聲音 `Kore`，PCM 由 `WrapPCM16` 封成 WAV |
 
 | 函式 | 簽名 | 說明 |
