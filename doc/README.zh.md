@@ -1,7 +1,7 @@
 > [!NOTE]
 > 此 README 由 [SKILL](https://github.com/agenvoy/skill-readme-generate) 生成，英文版請參閱 [這裡](../README.md)。
 
-***
+---
 
 <p align="center">
 <strong>ONE AGENT INTERFACE FOR EVERY LLM PROVIDER</strong>
@@ -11,9 +11,7 @@
 <a href="https://pkg.go.dev/github.com/pardnchiu/go-llm-router"><img src="https://img.shields.io/badge/GO-REFERENCE-blue?include_prereleases&style=for-the-badge" alt="Go Reference"></a>
 <a href="https://github.com/pardnchiu/go-llm-router/releases"><img src="https://img.shields.io/github/v/tag/pardnchiu/go-llm-router?include_prereleases&style=for-the-badge" alt="Release"></a>
 <a href="LICENSE"><img src="https://img.shields.io/github/license/pardnchiu/go-llm-router?include_prereleases&style=for-the-badge" alt="License"></a>
-<a href="https://app.codecov.io/github/pardnchiu/go-llm-router/tree/develop"><img src="https://img.shields.io/codecov/c/github/pardnchiu/go-llm-router/develop?include_prereleases&style=for-the-badge" alt="Coverage"></a>
 </p>
-
 ***
 
 > Go LLM 路由函式庫，具備統一 Agent 介面、字串路由工廠與跨供應商用量正規化
@@ -68,6 +66,6 @@ Just [open an issue](https://github.com/pardnchiu/go-llm-router/issues/new) to s
   <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-09-20" alt="go-llm-router contributors" />
 </a>
 
-***
+---
 
 ©️ 2026 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)

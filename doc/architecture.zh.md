@@ -106,7 +106,7 @@ graph TB
     New --> StreamFile
     Send --> CoreHTTP[core / go-pkg http]
     StreamFile --> CoreStream[llmrouter.OpenStream]
-    Models --> Filter[llmrouter.MatchModelFilter]
+    Models --> Filter[ModelFilter]
 ```
 
 | 群組 | 套件 | 線路格式 |
@@ -167,10 +167,13 @@ graph TB
     ImageAgent --> CodexImg[codex<br/>Responses image_generation]
     ImageAgent --> GeminiImg[gemini<br/>:generateContent]
     ImageAgent --> GrokImg[grok / grok-oauth<br/>/v1/images/*]
+    ImageAgent --> OpenRouterImg[openrouter<br/>/api/v1/images]
     STT[llmrouter.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
     STT --> GeminiSTT[gemini<br/>逐字轉寫]
+    STT --> OpenRouterSTT[openrouter<br/>/api/v1/audio/transcriptions]
     TTS[llmrouter.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
     TTS --> GeminiTTS[gemini<br/>AUDIO 模態 + WrapPCM16]
+    TTS --> OpenRouterTTS[openrouter<br/>/api/v1/audio/speech + WrapPCM16]
 ```
 
 圖片與語音模型都由 agent 模型決定，唯 `codex` 由後端以對話模型生成。
@@ -179,18 +182,17 @@ graph TB
 
 ```mermaid
 graph LR
-    Models[provider.Models] --> Fetch[抓取供應商模型清單]
-    Fetch --> Match[llmrouter.MatchModelFilter]
-    Match --> TextOnly[TextOnly]
-    Match --> STTOnly[STTOnly]
-    Match --> TTSOnly[TTSOnly]
-    Match --> ImageOnly[ImageOnly]
-    ImageOnly --> NoVideo[排除 video 標記]
-    Match --> IDs["[]string 模型 ID"]
-    Fetch --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
+    Models[provider.Models] --> Markers[模型 ID 標記<br/>llmrouter.MatchModelFilter]
+    Models --> Catalog[供應商目錄]
+    Models --> TextOnlyOnly[僅 TextOnly<br/>llmrouter.IsTextModel]
+    Markers --> MarkerProviders[openai / gemini / grok / grok-oauth<br/>四旗標皆支援，ImageOnly 排除 video]
+    Catalog --> OpenRouterCat[openrouter<br/>/images/models、?output_modalities=speech / transcription]
+    Catalog --> CloudflareCat[cloudflare<br/>Workers AI task 名稱]
+    TextOnlyOnly --> TextProviders[claude / copilot / deepseek / mistral / nvidia / ollama-cloud / codex]
+    Models --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
 ```
 
-Cloudflare 例外：改以 Workers AI 的 task 名稱（`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`）篩選，而非模型 ID 標記。
+三種策略並存。`openai`、`gemini`、`grok`、`grok-oauth` 以 `MatchModelFilter` 判斷模型 ID，四個旗標皆支援。`openrouter` 讀自家目錄：`ImageOnly` 取 `/api/v1/images/models`（即 `/api/v1/images` 實際接受的目錄），`TTSOnly` / `STTOnly` 取 `/api/v1/models?output_modalities=speech` / `transcription`。`cloudflare` 以 Workers AI 的 task 名稱（`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`）篩選，不支援 `ImageOnly`。其餘供應商只支援 `TextOnly`。
 
 ## 資料流
 
