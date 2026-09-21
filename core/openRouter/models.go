@@ -9,20 +9,31 @@ import (
 
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 const (
-	modelsAPI = "https://openrouter.ai/api/v1/models"
+	modelsAPI      = "https://openrouter.ai/api/v1/models"
+	imageModelsAPI = "https://openrouter.ai/api/v1/images/models"
 )
 
-func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([]string, error) {
+func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
+	endpoint := modelsAPI
+	switch {
+	case filter.ImageOnly:
+		endpoint = imageModelsAPI
+	case filter.TTSOnly:
+		endpoint = modelsAPI + "?output_modalities=speech"
+	case filter.STTOnly:
+		endpoint = modelsAPI + "?output_modalities=transcription"
+	}
+
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[core.Models](ctx, client, modelsAPI, map[string]string{
+	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, endpoint, map[string]string{
 		"Authorization": "Bearer " + config.APIKey,
 	})
 	if err != nil {
@@ -38,7 +49,7 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 		if id == "" {
 			continue
 		}
-		if filter.TextOnly && !core.IsTextModel(id) {
+		if filter.TextOnly && !llmrouter.IsTextModel(id) {
 			continue
 		}
 		ids = append(ids, id)

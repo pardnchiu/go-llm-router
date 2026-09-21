@@ -3,28 +3,28 @@ package ollamacloud
 import (
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
-func limits(model string) (low, high core.Reasoning) {
+func limits(model string) (low, high llmrouter.Reasoning) {
 	if strings.HasPrefix(model, "gpt-oss") {
-		return core.ReasoningLow, core.ReasoningHigh
+		return llmrouter.ReasoningLow, llmrouter.ReasoningHigh
 	}
-	return core.ReasoningNone, core.ReasoningHigh
+	return llmrouter.ReasoningNone, llmrouter.ReasoningHigh
 }
 
-func (a *Agent) ReasoningLimits() (core.Reasoning, core.Reasoning) {
+func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
 	return limits(a.model)
 }
 
-var effortName = map[core.Reasoning]string{
-	core.ReasoningNone:   "none",
-	core.ReasoningLow:    "low",
-	core.ReasoningMedium: "medium",
-	core.ReasoningHigh:   "high",
+var effortName = map[llmrouter.Reasoning]string{
+	llmrouter.ReasoningNone:   "none",
+	llmrouter.ReasoningLow:    "low",
+	llmrouter.ReasoningMedium: "medium",
+	llmrouter.ReasoningHigh:   "high",
 }
 
-func (a *Agent) effort(reasoning core.Reasoning) string {
+func (a *Agent) effort(reasoning llmrouter.Reasoning) string {
 	low, high := limits(a.model)
-	return effortName[core.ClampReasoning(reasoning, low, high, label, a.model)]
+	return effortName[llmrouter.ClampReasoning(reasoning, low, high, label, a.model)]
 }

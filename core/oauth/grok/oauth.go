@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	"github.com/pardnchiu/go-pkg/filesystem/keychain"
 )
 
@@ -24,7 +24,7 @@ func httpClient() *http.Client {
 	}
 }
 
-func Load() (*core.GrokToken, error) {
+func Load() (*llmrouter.GrokToken, error) {
 	raw := keychain.Get(tokenKey)
 	// ! agenvoy.grok-oauth.token will deprecated in v1.*.*
 	if raw == "" {
@@ -33,7 +33,7 @@ func Load() (*core.GrokToken, error) {
 	if raw == "" {
 		return nil, nil
 	}
-	var t core.GrokToken
+	var t llmrouter.GrokToken
 	if err := json.Unmarshal([]byte(raw), &t); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
@@ -54,14 +54,14 @@ func ClearToken() error {
 	return err
 }
 
-func EnsureFresh(ctx context.Context, token *core.GrokToken) (*core.GrokToken, error) {
+func EnsureFresh(ctx context.Context, token *llmrouter.GrokToken) (*llmrouter.GrokToken, error) {
 	if token != nil && !token.Expired() {
 		return token, nil
 	}
 	return refresh(ctx, token)
 }
 
-func saveToken(t *core.GrokToken) error {
+func saveToken(t *llmrouter.GrokToken) error {
 	raw, err := json.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("json.Marshal: %w", err)

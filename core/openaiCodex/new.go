@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	oauthCodex "github.com/pardnchiu/go-llm-router/core/oauth/codex"
 )
 
@@ -29,11 +29,11 @@ type Agent struct {
 	httpClient *http.Client
 	model      string
 
-	token *core.CodexToken
+	token *llmrouter.CodexToken
 }
 
-func New(config core.Config) (*Agent, error) {
-	token, ok := config.Token.(*core.CodexToken)
+func New(config llmrouter.Config) (*Agent, error) {
+	token, ok := config.Token.(*llmrouter.CodexToken)
 	if !ok || token == nil {
 		return nil, fmt.Errorf("openaicodex.New: Token is required")
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -22,7 +22,7 @@ func (a *Agent) headers() map[string]string {
 	return headers
 }
 
-func (a *Agent) buildBody(messages []core.Message, tools []core.Tool) map[string]any {
+func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool) map[string]any {
 	return map[string]any{
 		"model":       a.model,
 		"messages":    messages,
@@ -31,8 +31,8 @@ func (a *Agent) buildBody(messages []core.Message, tools []core.Tool) map[string
 	}
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
-	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, a.chatAPI(), a.headers(), a.buildBody(messages, tools), "json")
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
+	result, code, err := go_pkg_http.POST[llmrouter.Output](ctx, a.httpClient, a.chatAPI(), a.headers(), a.buildBody(messages, tools), "json")
 	if err != nil {
 		return nil, code, err
 	}

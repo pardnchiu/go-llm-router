@@ -1,4 +1,4 @@
-package core
+package llmrouter
 
 import (
 	"net/http"

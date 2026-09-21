@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 // * Responses API response types
@@ -46,7 +46,7 @@ type ToolCall struct {
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
-func ConvertInput(messages []core.Message) []map[string]any {
+func ConvertInput(messages []llmrouter.Message) []map[string]any {
 	result := make([]map[string]any, 0, len(messages))
 	for _, m := range messages {
 		// * tool result -> function_call_output
@@ -94,7 +94,7 @@ func convertContent(role string, content any) any {
 		return []map[string]any{
 			{"type": textType, "text": v},
 		}
-	case []core.ContentPart:
+	case []llmrouter.ContentPart:
 		parts := make([]map[string]any, 0, len(v))
 		for _, p := range v {
 			switch p.Type {
@@ -125,7 +125,7 @@ func convertContent(role string, content any) any {
 	}
 }
 
-func ConvertTools(tools []core.Tool) []ToolCall {
+func ConvertTools(tools []llmrouter.Tool) []ToolCall {
 	result := make([]ToolCall, len(tools))
 	for i, t := range tools {
 		result[i] = ToolCall{
@@ -138,8 +138,8 @@ func ConvertTools(tools []core.Tool) []ToolCall {
 	return result
 }
 
-func ConvertOutput(r Output) core.Output {
-	var msg core.Message
+func ConvertOutput(r Output) llmrouter.Output {
+	var msg llmrouter.Message
 	msg.Role = "assistant"
 	var text strings.Builder
 
@@ -156,7 +156,7 @@ func ConvertOutput(r Output) core.Output {
 				msg.ReasoningContent += s.Text
 			}
 		case "function_call":
-			msg.ToolCalls = append(msg.ToolCalls, core.ToolCall{
+			msg.ToolCalls = append(msg.ToolCalls, llmrouter.ToolCall{
 				ID:   item.CallID,
 				Type: "function",
 				Function: struct {
@@ -179,11 +179,11 @@ func ConvertOutput(r Output) core.Output {
 		finishReason = "tool_calls"
 	}
 
-	return core.Output{
-		Choices: []core.OutputChoices{
+	return llmrouter.Output{
+		Choices: []llmrouter.OutputChoices{
 			{Message: msg, FinishReason: finishReason},
 		},
-		Usage: core.Usage{
+		Usage: llmrouter.Usage{
 			Input:     r.Usage.InputTokens - r.Usage.InputTokensDetails.CachedTokens,
 			Output:    r.Usage.OutputTokens,
 			CacheRead: r.Usage.InputTokensDetails.CachedTokens,

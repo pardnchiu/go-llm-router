@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -16,13 +16,13 @@ const (
 type response struct {
 	Choices []struct {
 		Message struct {
-			Role      string          `json:"role"`
-			Content   json.RawMessage `json:"content"`
-			ToolCalls []core.ToolCall `json:"tool_calls"`
+			Role      string               `json:"role"`
+			Content   json.RawMessage      `json:"content"`
+			ToolCalls []llmrouter.ToolCall `json:"tool_calls"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage core.Usage `json:"usage"`
+	Usage llmrouter.Usage `json:"usage"`
 }
 
 type contentPart struct {
@@ -63,8 +63,8 @@ func splitContent(raw json.RawMessage) (text, reasoning string) {
 	return textBuilder.String(), reasoningBuilder.String()
 }
 
-func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
-	cleaned := make([]core.Message, len(messages))
+func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
+	cleaned := make([]llmrouter.Message, len(messages))
 	copy(cleaned, messages)
 	for i := range cleaned {
 		cleaned[i].ReasoningContent = ""
@@ -89,20 +89,20 @@ func (a *Agent) headers() map[string]string {
 	}
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
 	result, code, err := go_pkg_http.POST[response](ctx, a.httpClient, chatAPI, a.headers(), a.buildBody(messages, tools, reasoning), "json")
 	if err != nil {
 		return nil, code, err
 	}
 
-	output := &core.Output{
-		Choices: make([]core.OutputChoices, 0, len(result.Choices)),
+	output := &llmrouter.Output{
+		Choices: make([]llmrouter.OutputChoices, 0, len(result.Choices)),
 		Usage:   result.Usage,
 	}
 	for _, c := range result.Choices {
 		text, reasoningText := splitContent(c.Message.Content)
-		output.Choices = append(output.Choices, core.OutputChoices{
-			Message: core.Message{
+		output.Choices = append(output.Choices, llmrouter.OutputChoices{
+			Message: llmrouter.Message{
 				Role:             c.Message.Role,
 				Content:          text,
 				ReasoningContent: reasoningText,

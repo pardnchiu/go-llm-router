@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	"github.com/pardnchiu/go-llm-router/core/claude"
 	"github.com/pardnchiu/go-llm-router/core/cloudflare"
 	"github.com/pardnchiu/go-llm-router/core/compat"
@@ -31,59 +31,59 @@ type Config struct {
 	GatewayID string
 }
 
-var newFn = map[string]func(config Config) (core.Agent, error){
-	"claude": func(config Config) (core.Agent, error) {
-		return claude.New(core.Config{Model: strings.TrimPrefix(config.Name, claude.Prefix), APIKey: config.APIKey})
+var newFn = map[string]func(config Config) (llmrouter.Agent, error){
+	"claude": func(config Config) (llmrouter.Agent, error) {
+		return claude.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, claude.Prefix), APIKey: config.APIKey})
 	},
-	"openai": func(config Config) (core.Agent, error) {
-		return openai.New(core.Config{Model: strings.TrimPrefix(config.Name, openai.Prefix), APIKey: config.APIKey})
+	"openai": func(config Config) (llmrouter.Agent, error) {
+		return openai.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, openai.Prefix), APIKey: config.APIKey})
 	},
-	"gemini": func(config Config) (core.Agent, error) {
-		return gemini.New(core.Config{Model: strings.TrimPrefix(config.Name, gemini.Prefix), APIKey: config.APIKey})
+	"gemini": func(config Config) (llmrouter.Agent, error) {
+		return gemini.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, gemini.Prefix), APIKey: config.APIKey})
 	},
-	"grok": func(config Config) (core.Agent, error) {
-		return grok.New(core.Config{Model: strings.TrimPrefix(config.Name, grok.Prefix), APIKey: config.APIKey})
+	"grok": func(config Config) (llmrouter.Agent, error) {
+		return grok.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, grok.Prefix), APIKey: config.APIKey})
 	},
-	"deepseek": func(config Config) (core.Agent, error) {
-		return deepseek.New(core.Config{Model: strings.TrimPrefix(config.Name, deepseek.Prefix), APIKey: config.APIKey})
+	"deepseek": func(config Config) (llmrouter.Agent, error) {
+		return deepseek.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, deepseek.Prefix), APIKey: config.APIKey})
 	},
-	"mistral": func(config Config) (core.Agent, error) {
-		return mistral.New(core.Config{Model: strings.TrimPrefix(config.Name, mistral.Prefix), APIKey: config.APIKey})
+	"mistral": func(config Config) (llmrouter.Agent, error) {
+		return mistral.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, mistral.Prefix), APIKey: config.APIKey})
 	},
-	"nvidia": func(config Config) (core.Agent, error) {
-		return nvidia.New(core.Config{Model: strings.TrimPrefix(config.Name, nvidia.Prefix), APIKey: config.APIKey})
+	"nvidia": func(config Config) (llmrouter.Agent, error) {
+		return nvidia.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, nvidia.Prefix), APIKey: config.APIKey})
 	},
-	"ollama-cloud": func(config Config) (core.Agent, error) {
-		return ollamacloud.New(core.Config{Model: strings.TrimPrefix(config.Name, ollamacloud.Prefix), APIKey: config.APIKey})
+	"ollama-cloud": func(config Config) (llmrouter.Agent, error) {
+		return ollamacloud.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, ollamacloud.Prefix), APIKey: config.APIKey})
 	},
-	"openrouter": func(config Config) (core.Agent, error) {
-		return openrouter.New(core.Config{Model: strings.TrimPrefix(config.Name, openrouter.Prefix), APIKey: config.APIKey})
+	"openrouter": func(config Config) (llmrouter.Agent, error) {
+		return openrouter.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, openrouter.Prefix), APIKey: config.APIKey})
 	},
-	"cloudflare": func(config Config) (core.Agent, error) {
-		return cloudflare.New(core.Config{
+	"cloudflare": func(config Config) (llmrouter.Agent, error) {
+		return cloudflare.New(llmrouter.Config{
 			Model:     strings.TrimPrefix(config.Name, cloudflare.Prefix),
 			APIKey:    config.APIKey,
 			AccountID: config.AccountID,
 			GatewayID: config.GatewayID,
 		})
 	},
-	"compat": func(config Config) (core.Agent, error) {
+	"compat": func(config Config) (llmrouter.Agent, error) {
 		head, model, _ := strings.Cut(config.Name, "@")
-		return compat.New(core.Config{
+		return compat.New(llmrouter.Config{
 			Model:   model,
 			APIKey:  config.APIKey,
 			BaseURL: config.BaseURL,
 			Prefix:  compatPrefix(head),
 		})
 	},
-	"copilot": func(config Config) (core.Agent, error) {
-		return copilot.New(core.Config{Model: strings.TrimPrefix(config.Name, copilot.Prefix), Token: config.Token})
+	"copilot": func(config Config) (llmrouter.Agent, error) {
+		return copilot.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, copilot.Prefix), Token: config.Token})
 	},
-	"codex": func(config Config) (core.Agent, error) {
-		return openaicodex.New(core.Config{Model: strings.TrimPrefix(config.Name, openaicodex.Prefix), Token: config.Token})
+	"codex": func(config Config) (llmrouter.Agent, error) {
+		return openaicodex.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, openaicodex.Prefix), Token: config.Token})
 	},
-	"grok-oauth": func(config Config) (core.Agent, error) {
-		return grokoauth.New(core.Config{Model: strings.TrimPrefix(config.Name, grokoauth.Prefix), Token: config.Token})
+	"grok-oauth": func(config Config) (llmrouter.Agent, error) {
+		return grokoauth.New(llmrouter.Config{Model: strings.TrimPrefix(config.Name, grokoauth.Prefix), Token: config.Token})
 	},
 }
 
@@ -99,7 +99,7 @@ func compatPrefix(head string) string {
 	return strings.ToLower(instance) + "@"
 }
 
-func New(config Config) (core.Agent, error) {
+func New(config Config) (llmrouter.Agent, error) {
 	providerFull, model, found := strings.Cut(config.Name, "@")
 	prov, _, _ := strings.Cut(providerFull, "[")
 	fn, ok := newFn[prov]

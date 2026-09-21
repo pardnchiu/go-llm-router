@@ -3,7 +3,7 @@ package claude
 import (
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 type thinkingMode int
@@ -14,45 +14,45 @@ const (
 	mode47
 )
 
-func limits(model string) (mode thinkingMode, low, high core.Reasoning) {
+func limits(model string) (mode thinkingMode, low, high llmrouter.Reasoning) {
 	if strings.Contains(model, "-4-5") || strings.Contains(model, "-4-1") {
-		return modeBudget, core.ReasoningNone, core.ReasoningHigh
+		return modeBudget, llmrouter.ReasoningNone, llmrouter.ReasoningHigh
 	}
 	mode = mode47
 	if strings.Contains(model, "opus-4-6") || strings.Contains(model, "sonnet-4-6") {
 		mode = mode46
 	}
-	return mode, core.ReasoningNone, core.ReasoningMax
+	return mode, llmrouter.ReasoningNone, llmrouter.ReasoningMax
 }
 
-func (a *Agent) ReasoningLimits() (core.Reasoning, core.Reasoning) {
+func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
 	_, low, high := limits(a.model)
 	return low, high
 }
 
-var effortName = map[core.Reasoning]string{
-	core.ReasoningLow:    "low",
-	core.ReasoningMedium: "medium",
-	core.ReasoningHigh:   "high",
-	core.ReasoningXHigh:  "xhigh",
-	core.ReasoningMax:    "max",
+var effortName = map[llmrouter.Reasoning]string{
+	llmrouter.ReasoningLow:    "low",
+	llmrouter.ReasoningMedium: "medium",
+	llmrouter.ReasoningHigh:   "high",
+	llmrouter.ReasoningXHigh:  "xhigh",
+	llmrouter.ReasoningMax:    "max",
 }
 
-var thinkingBudget = map[core.Reasoning]int{
-	core.ReasoningLow:    5000,
-	core.ReasoningMedium: 10000,
-	core.ReasoningHigh:   32000,
+var thinkingBudget = map[llmrouter.Reasoning]int{
+	llmrouter.ReasoningLow:    5000,
+	llmrouter.ReasoningMedium: 10000,
+	llmrouter.ReasoningHigh:   32000,
 }
 
 func adaptiveThinking() map[string]any {
 	return map[string]any{"type": "adaptive", "display": "summarized"}
 }
 
-func (a *Agent) applyReasoning(body map[string]any, reasoning core.Reasoning) {
+func (a *Agent) applyReasoning(body map[string]any, reasoning llmrouter.Reasoning) {
 	mode, low, high := limits(a.model)
-	level := core.ClampReasoning(reasoning, low, high, "claude", a.model)
+	level := llmrouter.ClampReasoning(reasoning, low, high, "claude", a.model)
 
-	if level == core.ReasoningNone {
+	if level == llmrouter.ReasoningNone {
 		switch {
 		case mode == modeBudget:
 			body["temperature"] = 0.2
@@ -67,7 +67,7 @@ func (a *Agent) applyReasoning(body map[string]any, reasoning core.Reasoning) {
 	case modeBudget:
 		budget, ok := thinkingBudget[level]
 		if !ok {
-			budget = thinkingBudget[core.ReasoningMedium]
+			budget = thinkingBudget[llmrouter.ReasoningMedium]
 		}
 		if ceiling := a.maxOutputTokens() / 2; budget > ceiling {
 			budget = ceiling

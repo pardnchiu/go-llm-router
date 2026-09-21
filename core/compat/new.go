@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 type Agent struct {
@@ -22,7 +22,7 @@ const (
 	defaultPrefix  = "compat@"
 )
 
-func New(config core.Config) (*Agent, error) {
+func New(config llmrouter.Config) (*Agent, error) {
 	if config.Model == "" {
 		return nil, fmt.Errorf("compat.New: Model is required")
 	}

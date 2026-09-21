@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	copilotResponse "github.com/pardnchiu/go-llm-router/core/copilot/response"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
@@ -39,9 +39,9 @@ func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	return headers, nil
 }
 
-func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
+func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	var instructions string
-	var nonSystem []core.Message
+	var nonSystem []llmrouter.Message
 	for _, m := range messages {
 		if m.Role == "system" {
 			if s, ok := m.Content.(string); ok {
@@ -72,7 +72,7 @@ func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning 
 	return body
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
 	headers, err := a.headers(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -85,8 +85,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, core.ErrorBodyLimit))
-		return nil, resp.StatusCode, &core.StreamError{
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, llmrouter.ErrorBodyLimit))
+		return nil, resp.StatusCode, &llmrouter.StreamError{
 			Provider: label,
 			Code:     resp.StatusCode,
 			Body:     strings.TrimSpace(string(raw)),
@@ -134,14 +134,14 @@ type pendingCall struct {
 	args   string
 }
 
-func parseSSEStream(resp *http.Response) (*core.Output, error) {
+func parseSSEStream(resp *http.Response) (*llmrouter.Output, error) {
 	var (
 		textBuf        strings.Builder
 		completedText  string
 		reasonDeltaBuf strings.Builder
 		reasonItemBuf  strings.Builder
-		toolCalls      []core.ToolCall
-		usage          core.Usage
+		toolCalls      []llmrouter.ToolCall
+		usage          llmrouter.Usage
 		argsBuf        = map[string]*strings.Builder{}
 		pending        []pendingCall
 	)
@@ -234,12 +234,12 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 			}
 
 		case "response.failed", "error":
-			streamErr = core.ResponsesStreamError(label, data)
+			streamErr = llmrouter.ResponsesStreamError(label, data)
 			return false
 
 		case "response.completed", "response.incomplete":
 			if ev.Response != nil {
-				usage = core.Usage{
+				usage = llmrouter.Usage{
 					Input:     ev.Response.Usage.InputTokens - ev.Response.Usage.InputTokensDetails.CachedTokens,
 					Output:    ev.Response.Usage.OutputTokens,
 					CacheRead: ev.Response.Usage.InputTokensDetails.CachedTokens,
@@ -258,7 +258,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		return true
 	}
 
-	if err := core.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, core.StreamBodyLimit)), handle); err != nil {
+	if err := llmrouter.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, llmrouter.StreamBodyLimit)), handle); err != nil {
 		return nil, fmt.Errorf("codex stream read: %w", err)
 	}
 	if streamErr != nil {
@@ -277,7 +277,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 				args = b.String()
 			}
 		}
-		toolCalls = append(toolCalls, core.ToolCall{
+		toolCalls = append(toolCalls, llmrouter.ToolCall{
 			ID:   p.callID,
 			Type: "function",
 			Function: struct {
@@ -290,7 +290,7 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		})
 	}
 
-	msg := core.Message{Role: "assistant"}
+	msg := llmrouter.Message{Role: "assistant"}
 	if str := textBuf.String(); str != "" {
 		msg.Content = str
 	} else if completedText != "" {
@@ -307,8 +307,8 @@ func parseSSEStream(resp *http.Response) (*core.Output, error) {
 		finishReason = "tool_calls"
 	}
 
-	return &core.Output{
-		Choices: []core.OutputChoices{
+	return &llmrouter.Output{
+		Choices: []llmrouter.OutputChoices{
 			{Message: msg, FinishReason: finishReason},
 		},
 		Usage: usage,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -13,9 +13,9 @@ const (
 	chatAPI = "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
-func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
+func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	// * do not support mutiple system prompt, merge to one
-	var merged []core.Message
+	var merged []llmrouter.Message
 	var systemParts []string
 	for _, m := range messages {
 		if m.Role == "system" {
@@ -27,7 +27,7 @@ func (a *Agent) buildBody(messages []core.Message, tools []core.Tool, reasoning 
 		}
 	}
 	if len(systemParts) > 0 {
-		merged = append([]core.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
+		merged = append([]llmrouter.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
 	body := map[string]any{
@@ -49,8 +49,8 @@ func (a *Agent) headers() map[string]string {
 	}
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
-	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, a.headers(), a.buildBody(messages, tools, reasoning), "json")
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
+	result, code, err := go_pkg_http.POST[llmrouter.Output](ctx, a.httpClient, chatAPI, a.headers(), a.buildBody(messages, tools, reasoning), "json")
 	if err != nil {
 		return nil, code, err
 	}

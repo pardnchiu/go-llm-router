@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -27,7 +27,7 @@ type imageResponse struct {
 	} `json:"error"`
 }
 
-func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts llmrouter.ImageOptions) (*llmrouter.ImageResult, error) {
 	parts := []map[string]any{}
 	if opts.RefImageB64 != "" {
 		mime := opts.RefMime
@@ -71,7 +71,7 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.Imag
 	for _, c := range result.Candidates {
 		for _, p := range c.Content.Parts {
 			if p.InlineData != nil && p.InlineData.Data != "" {
-				return &core.ImageResult{B64: p.InlineData.Data, MimeType: p.InlineData.MimeType}, nil
+				return &llmrouter.ImageResult{B64: p.InlineData.Data, MimeType: p.InlineData.MimeType}, nil
 			}
 		}
 	}

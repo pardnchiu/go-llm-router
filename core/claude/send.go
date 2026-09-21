@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -14,7 +14,7 @@ const (
 	messagesAPI = "https://api.anthropic.com/v1/messages"
 )
 
-func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
+func (a *Agent) buildRequestBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	var systemPrompts []map[string]any
 	var newMessages []map[string]any
 
@@ -56,8 +56,8 @@ func (a *Agent) buildRequestBody(messages []core.Message, tools []core.Tool, rea
 	return requestBody
 }
 
-func (a *Agent) applyMode(body map[string]any, mode core.Mode) bool {
-	if mode != core.ModeFast || !core.SupportFast("claude", a.model) {
+func (a *Agent) applyMode(body map[string]any, mode llmrouter.Mode) bool {
+	if mode != llmrouter.ModeFast || !llmrouter.SupportFast("claude", a.model) {
 		return false
 	}
 	body["speed"] = "fast"
@@ -77,7 +77,7 @@ func (a *Agent) headers(fast bool) map[string]string {
 	}
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
 	requestBody := a.buildRequestBody(messages, tools, reasoning)
 	fast := a.applyMode(requestBody, mode)
 
@@ -89,7 +89,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		return nil, code, fmt.Errorf("%s: %s", label, result.Error.Message)
 	}
 	if fast {
-		core.WarnFastDowngrade("claude", a.model, result.Usage.Speed)
+		llmrouter.WarnFastDowngrade("claude", a.model, result.Usage.Speed)
 	}
 	out, err := a.convertToOutput(&result)
 	if err != nil {
@@ -98,10 +98,10 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	return out, code, nil
 }
 
-func (a *Agent) convertToMessage(message core.Message) map[string]any {
+func (a *Agent) convertToMessage(message llmrouter.Message) map[string]any {
 	if message.ToolCallID != "" {
 		var toolResultContent any = message.Content
-		if parts, ok := message.Content.([]core.ContentPart); ok {
+		if parts, ok := message.Content.([]llmrouter.ContentPart); ok {
 			var blocks []map[string]any
 			for _, p := range parts {
 				switch p.Type {
@@ -157,7 +157,7 @@ func (a *Agent) convertToMessage(message core.Message) map[string]any {
 		}
 	}
 
-	if parts, ok := message.Content.([]core.ContentPart); ok {
+	if parts, ok := message.Content.([]llmrouter.ContentPart); ok {
 		var content []map[string]any
 		for _, part := range parts {
 			if part.Type == "text" {
@@ -221,7 +221,7 @@ func parseDataURL(url string) (mediaType, data string, ok bool) {
 	return rest[:semi], rest[semi+8:], true
 }
 
-func (a *Agent) convertToTools(tools []core.Tool) []map[string]any {
+func (a *Agent) convertToTools(tools []llmrouter.Tool) []map[string]any {
 	newTools := make([]map[string]any, len(tools))
 	for i, tool := range tools {
 		newTools[i] = map[string]any{
@@ -236,10 +236,10 @@ func (a *Agent) convertToTools(tools []core.Tool) []map[string]any {
 	return newTools
 }
 
-func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
-	output := &core.Output{
-		Choices: make([]core.OutputChoices, 1),
-		Usage: core.Usage{
+func (a *Agent) convertToOutput(resp *Output) (*llmrouter.Output, error) {
+	output := &llmrouter.Output{
+		Choices: make([]llmrouter.OutputChoices, 1),
+		Usage: llmrouter.Usage{
 			Input:       resp.Usage.InputTokens,
 			Output:      resp.Usage.OutputTokens,
 			CacheCreate: resp.Usage.CacheCreationInputTokens,
@@ -247,7 +247,7 @@ func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 		},
 	}
 
-	var toolCalls []core.ToolCall
+	var toolCalls []llmrouter.ToolCall
 	var textContent strings.Builder
 	var reasoning strings.Builder
 
@@ -266,7 +266,7 @@ func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 				arg = string(raw)
 			}
 
-			toolCall := core.ToolCall{
+			toolCall := llmrouter.ToolCall{
 				ID:   item.ID,
 				Type: "function",
 			}
@@ -282,7 +282,7 @@ func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 		return nil, fmt.Errorf("claude returned no content (stopReason: %s)", resp.StopReason)
 	}
 
-	output.Choices[0].Message = core.Message{
+	output.Choices[0].Message = llmrouter.Message{
 		Role:             "assistant",
 		Content:          text,
 		ReasoningContent: reasoning.String(),

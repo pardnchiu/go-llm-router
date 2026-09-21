@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -20,7 +20,7 @@ const (
 	defaultFormat    = "wav"
 )
 
-func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts core.STTOptions) (*core.STTResult, error) {
+func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts llmrouter.STTOptions) (*llmrouter.STTResult, error) {
 	if len(audio) == 0 {
 		return nil, fmt.Errorf("openai.Transcribe: audio is empty")
 	}
@@ -50,10 +50,10 @@ func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts core.STTOptio
 	if code != http.StatusOK {
 		return nil, fmt.Errorf("openai transcriptions: http %d", code)
 	}
-	return &core.STTResult{Text: strings.TrimSpace(result.Text)}, nil
+	return &llmrouter.STTResult{Text: strings.TrimSpace(result.Text)}, nil
 }
 
-func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*core.TTSResult, error) {
+func (a *Agent) Speak(ctx context.Context, text string, opts llmrouter.TTSOptions) (*llmrouter.TTSResult, error) {
 	if strings.TrimSpace(text) == "" {
 		return nil, fmt.Errorf("openai.Speak: text is empty")
 	}
@@ -102,7 +102,7 @@ func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*
 	if mime == "" {
 		mime = speechMime(format)
 	}
-	return &core.TTSResult{Audio: audio, MimeType: mime}, nil
+	return &llmrouter.TTSResult{Audio: audio, MimeType: mime}, nil
 }
 
 func speechMime(format string) string {

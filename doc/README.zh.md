@@ -46,7 +46,7 @@
 ```mermaid
 graph TB
     App[呼叫端] --> Router[router.New]
-    Router --> Agent[core.Agent]
+    Router --> Agent[llmrouter.Agent]
     Agent --> KeyBased[金鑰型供應商]
     Agent --> OAuthBased[OAuth 型供應商]
     Agent --> Compat[OpenAI 相容端點]

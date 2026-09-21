@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -14,12 +14,12 @@ const (
 	copilotTokenAPI = "https://api.github.com/copilot_internal/v2/token"
 )
 
-func EnsureFreshSession(ctx context.Context, token *core.CopilotToken, refresh *core.CopilotRefreshToken) (*core.CopilotRefreshToken, error) {
+func EnsureFreshSession(ctx context.Context, token *llmrouter.CopilotToken, refresh *llmrouter.CopilotRefreshToken) (*llmrouter.CopilotRefreshToken, error) {
 	if refresh != nil && time.Now().Unix() < refresh.ExpiresAt-60 {
 		return refresh, nil
 	}
 
-	next, code, err := go_pkg_http.GET[core.CopilotRefreshToken](ctx, nil, copilotTokenAPI, map[string]string{
+	next, code, err := go_pkg_http.GET[llmrouter.CopilotRefreshToken](ctx, nil, copilotTokenAPI, map[string]string{
 		"Authorization":  "token " + token.AccessToken,
 		"Accept":         "application/json",
 		"Editor-Version": "vscode/1.95.0",

@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	"github.com/pardnchiu/go-llm-router/core/openai"
 )
 
 const imageLabel = "codex image"
 
-func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts llmrouter.ImageOptions) (*llmrouter.ImageResult, error) {
 	auth, err := a.authHeader(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("a.authHeader: %w", err)
@@ -33,7 +33,7 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.Imag
 		"stream":       true,
 	}
 
-	resp, err := core.OpenStream(ctx, a.httpClient, responsesAPI, headers, body, imageLabel)
+	resp, err := llmrouter.OpenStream(ctx, a.httpClient, responsesAPI, headers, body, imageLabel)
 	if err != nil {
 		return nil, err
 	}

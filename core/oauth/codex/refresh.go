@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
-func refresh(ctx context.Context, token *core.CodexToken) (*core.CodexToken, error) {
+func refresh(ctx context.Context, token *llmrouter.CodexToken) (*llmrouter.CodexToken, error) {
 	if token == nil || token.RefreshToken == "" {
 		return nil, fmt.Errorf("no refresh token available")
 	}
@@ -59,7 +59,7 @@ func refresh(ctx context.Context, token *core.CodexToken) (*core.CodexToken, err
 		accountID = token.AccountID
 	}
 
-	next := &core.CodexToken{
+	next := &llmrouter.CodexToken{
 		AccessToken:  raw.AccessToken,
 		RefreshToken: refreshToken,
 		IDToken:      raw.IDToken,

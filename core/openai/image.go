@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -46,25 +46,25 @@ type imageResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func ImageInput(prompt string, opts core.ImageOptions) []map[string]any {
+func ImageInput(prompt string, opts llmrouter.ImageOptions) []map[string]any {
 	content := []map[string]any{{"type": "input_text", "text": prompt}}
 	if opts.RefImageB64 != "" {
 		content = append(content, map[string]any{
 			"type":      "input_image",
-			"image_url": core.DataURI(opts.RefMime, opts.RefImageB64),
+			"image_url": llmrouter.DataURI(opts.RefMime, opts.RefImageB64),
 		})
 	}
 	return []map[string]any{{"role": "user", "content": content}}
 }
 
-func imageBody(model, prompt string, opts core.ImageOptions) map[string]any {
+func imageBody(model, prompt string, opts llmrouter.ImageOptions) map[string]any {
 	body := map[string]any{
 		"model":         model,
 		"prompt":        prompt,
 		"n":             1,
 		"output_format": imageFormat,
 	}
-	if size := core.ImagePixelSize(opts); size != "" {
+	if size := llmrouter.ImagePixelSize(opts); size != "" {
 		body["size"] = size
 	}
 	if opts.Quality != "" {
@@ -73,7 +73,7 @@ func imageBody(model, prompt string, opts core.ImageOptions) map[string]any {
 	return body
 }
 
-func (a *Agent) generate(ctx context.Context, prompt string, opts core.ImageOptions) (*imageResponse, error) {
+func (a *Agent) generate(ctx context.Context, prompt string, opts llmrouter.ImageOptions) (*imageResponse, error) {
 	headers := map[string]string{"Authorization": "Bearer " + a.apiKey}
 	result, code, err := go_pkg_http.POST[imageResponse](ctx, a.httpClient, imageAPI, headers, imageBody(a.model, prompt, opts), "json")
 	if err != nil {
@@ -85,7 +85,7 @@ func (a *Agent) generate(ctx context.Context, prompt string, opts core.ImageOpti
 	return &result, nil
 }
 
-func (a *Agent) edit(ctx context.Context, prompt string, opts core.ImageOptions) (*imageResponse, error) {
+func (a *Agent) edit(ctx context.Context, prompt string, opts llmrouter.ImageOptions) (*imageResponse, error) {
 	raw, err := base64.StdEncoding.DecodeString(opts.RefImageB64)
 	if err != nil {
 		return nil, fmt.Errorf("base64.Decode: %w", err)
@@ -113,7 +113,7 @@ func (a *Agent) edit(ctx context.Context, prompt string, opts core.ImageOptions)
 	return &result, nil
 }
 
-func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts llmrouter.ImageOptions) (*llmrouter.ImageResult, error) {
 	var out *imageResponse
 	var err error
 	if opts.RefImageB64 != "" {
@@ -131,7 +131,7 @@ func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.Imag
 	if len(out.Data) == 0 || out.Data[0].B64JSON == "" {
 		return nil, fmt.Errorf("%s: no image in response", imageLabel)
 	}
-	return &core.ImageResult{
+	return &llmrouter.ImageResult{
 		B64:      out.Data[0].B64JSON,
 		MimeType: "image/" + imageFormat,
 		Revised:  out.Data[0].RevisedPrompt,
@@ -153,11 +153,11 @@ func imageExt(mime string) string {
 	return ".png"
 }
 
-func ReadImageStream(body io.Reader) (*core.ImageResult, error) {
-	var result *core.ImageResult
+func ReadImageStream(body io.Reader) (*llmrouter.ImageResult, error) {
+	var result *llmrouter.ImageResult
 	var streamErr error
 
-	readErr := core.ScanSSE(bufio.NewReader(io.LimitReader(body, core.StreamBodyLimit)), func(_, data string) bool {
+	readErr := llmrouter.ScanSSE(bufio.NewReader(io.LimitReader(body, llmrouter.StreamBodyLimit)), func(_, data string) bool {
 		if strings.TrimSpace(data) == "[DONE]" {
 			return false
 		}
@@ -182,7 +182,7 @@ func ReadImageStream(body io.Reader) (*core.ImageResult, error) {
 		if format == "" {
 			format = "png"
 		}
-		result = &core.ImageResult{
+		result = &llmrouter.ImageResult{
 			B64:      ev.Item.Result,
 			MimeType: "image/" + format,
 			Revised:  ev.Item.RevisedPrompt,
