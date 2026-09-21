@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	modelsAPI = "https://openrouter.ai/api/v1/models"
+	modelsAPI      = "https://openrouter.ai/api/v1/models"
+	imageModelsAPI = "https://openrouter.ai/api/v1/images/models"
 )
 
 func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
@@ -21,8 +22,18 @@ func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.Model
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
+	endpoint := modelsAPI
+	switch {
+	case filter.ImageOnly:
+		endpoint = imageModelsAPI
+	case filter.TTSOnly:
+		endpoint = modelsAPI + "?output_modalities=speech"
+	case filter.STTOnly:
+		endpoint = modelsAPI + "?output_modalities=transcription"
+	}
+
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, modelsAPI, map[string]string{
+	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, endpoint, map[string]string{
 		"Authorization": "Bearer " + config.APIKey,
 	})
 	if err != nil {
