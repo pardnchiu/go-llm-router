@@ -3,34 +3,34 @@ package nvidia
 import (
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
-func limits(model string) (low, high core.Reasoning) {
+func limits(model string) (low, high llmrouter.Reasoning) {
 	if !strings.Contains(model, "gpt-oss") {
-		return core.ReasoningNone, core.ReasoningNone
+		return llmrouter.ReasoningNone, llmrouter.ReasoningNone
 	}
-	return core.ReasoningLow, core.ReasoningHigh
+	return llmrouter.ReasoningLow, llmrouter.ReasoningHigh
 }
 
-func (a *Agent) ReasoningLimits() (core.Reasoning, core.Reasoning) {
+func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
 	return limits(a.model)
 }
 
-var effortName = map[core.Reasoning]string{
-	core.ReasoningLow:    "low",
-	core.ReasoningMedium: "medium",
-	core.ReasoningHigh:   "high",
-	core.ReasoningXHigh:  "high",
-	core.ReasoningMax:    "high",
+var effortName = map[llmrouter.Reasoning]string{
+	llmrouter.ReasoningLow:    "low",
+	llmrouter.ReasoningMedium: "medium",
+	llmrouter.ReasoningHigh:   "high",
+	llmrouter.ReasoningXHigh:  "high",
+	llmrouter.ReasoningMax:    "high",
 }
 
-func (a *Agent) effort(reasoning core.Reasoning) (string, bool) {
+func (a *Agent) effort(reasoning llmrouter.Reasoning) (string, bool) {
 	low, high := limits(a.model)
-	if high == core.ReasoningNone {
+	if high == llmrouter.ReasoningNone {
 		return "", false
 	}
 
-	level := core.ClampReasoning(reasoning, low, high, "nvidia", a.model)
+	level := llmrouter.ClampReasoning(reasoning, low, high, "nvidia", a.model)
 	return effortName[level], true
 }

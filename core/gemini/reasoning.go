@@ -3,7 +3,7 @@ package gemini
 import (
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 type thinkingMode int
@@ -14,55 +14,55 @@ const (
 	modeBudget
 )
 
-func limits(model string, thinking *bool) (mode thinkingMode, low, high core.Reasoning) {
+func limits(model string, thinking *bool) (mode thinkingMode, low, high llmrouter.Reasoning) {
 	if thinking != nil && !*thinking {
-		return modeNone, core.ReasoningNone, core.ReasoningNone
+		return modeNone, llmrouter.ReasoningNone, llmrouter.ReasoningNone
 	}
 
 	switch {
 	case strings.HasPrefix(model, "gemini-3"), strings.HasSuffix(model, "-latest"):
-		return modeLevel, core.ReasoningLow, core.ReasoningHigh
+		return modeLevel, llmrouter.ReasoningLow, llmrouter.ReasoningHigh
 	case strings.HasPrefix(model, "gemini-2.5-"):
-		return modeBudget, core.ReasoningNone, core.ReasoningHigh
+		return modeBudget, llmrouter.ReasoningNone, llmrouter.ReasoningHigh
 	}
 
 	if thinking != nil && *thinking && strings.HasPrefix(model, "gemini-") {
-		return modeLevel, core.ReasoningLow, core.ReasoningHigh
+		return modeLevel, llmrouter.ReasoningLow, llmrouter.ReasoningHigh
 	}
-	return modeNone, core.ReasoningNone, core.ReasoningNone
+	return modeNone, llmrouter.ReasoningNone, llmrouter.ReasoningNone
 }
 
-func (a *Agent) ReasoningLimits() (core.Reasoning, core.Reasoning) {
+func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
 	_, low, high := limits(a.model, a.thinking)
 	return low, high
 }
 
-var levelName = map[core.Reasoning]string{
-	core.ReasoningLow:    "low",
-	core.ReasoningMedium: "medium",
-	core.ReasoningHigh:   "high",
-	core.ReasoningXHigh:  "high",
-	core.ReasoningMax:    "high",
+var levelName = map[llmrouter.Reasoning]string{
+	llmrouter.ReasoningLow:    "low",
+	llmrouter.ReasoningMedium: "medium",
+	llmrouter.ReasoningHigh:   "high",
+	llmrouter.ReasoningXHigh:  "high",
+	llmrouter.ReasoningMax:    "high",
 }
 
-func thinkingBudget(model string, level core.Reasoning) int {
+func thinkingBudget(model string, level llmrouter.Reasoning) int {
 	switch level {
-	case core.ReasoningNone:
+	case llmrouter.ReasoningNone:
 		if strings.Contains(model, "2.5-pro") {
 			return 128
 		}
 		return 0
-	case core.ReasoningLow:
+	case llmrouter.ReasoningLow:
 		return 1024
-	case core.ReasoningHigh, core.ReasoningXHigh, core.ReasoningMax:
+	case llmrouter.ReasoningHigh, llmrouter.ReasoningXHigh, llmrouter.ReasoningMax:
 		return 16384
 	}
 	return 8192
 }
 
-func (a *Agent) applyReasoning(generationConfig map[string]any, reasoning core.Reasoning) {
+func (a *Agent) applyReasoning(generationConfig map[string]any, reasoning llmrouter.Reasoning) {
 	mode, low, high := limits(a.model, a.thinking)
-	level := core.ClampReasoning(reasoning, low, high, "gemini", a.model)
+	level := llmrouter.ClampReasoning(reasoning, low, high, "gemini", a.model)
 
 	switch mode {
 	case modeLevel:

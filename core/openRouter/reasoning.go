@@ -3,35 +3,35 @@ package openrouter
 import (
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
-func limits(model string) (low, high core.Reasoning) {
+func limits(model string) (low, high llmrouter.Reasoning) {
 	if vendor, _, _ := strings.Cut(model, "/"); vendor == "deepseek" {
-		return core.ReasoningNone, core.ReasoningNone
+		return llmrouter.ReasoningNone, llmrouter.ReasoningNone
 	}
-	return core.ReasoningNone, core.ReasoningMax
+	return llmrouter.ReasoningNone, llmrouter.ReasoningMax
 }
 
-func (a *Agent) ReasoningLimits() (core.Reasoning, core.Reasoning) {
+func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
 	return limits(a.model)
 }
 
-var effortName = map[core.Reasoning]string{
-	core.ReasoningLow:    "low",
-	core.ReasoningMedium: "medium",
-	core.ReasoningHigh:   "high",
-	core.ReasoningXHigh:  "xhigh",
-	core.ReasoningMax:    "max",
+var effortName = map[llmrouter.Reasoning]string{
+	llmrouter.ReasoningLow:    "low",
+	llmrouter.ReasoningMedium: "medium",
+	llmrouter.ReasoningHigh:   "high",
+	llmrouter.ReasoningXHigh:  "xhigh",
+	llmrouter.ReasoningMax:    "max",
 }
 
-func (a *Agent) effort(reasoning core.Reasoning) (string, bool) {
+func (a *Agent) effort(reasoning llmrouter.Reasoning) (string, bool) {
 	low, high := limits(a.model)
-	if high == core.ReasoningNone {
+	if high == llmrouter.ReasoningNone {
 		return "", false
 	}
-	level := core.ClampReasoning(reasoning, low, high, "openrouter", a.model)
-	if level == core.ReasoningNone {
+	level := llmrouter.ClampReasoning(reasoning, low, high, "openrouter", a.model)
+	if level == llmrouter.ReasoningNone {
 		return "", false
 	}
 	return effortName[level], true

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -21,7 +21,7 @@ func (a *Agent) headers() map[string]string {
 	}
 }
 
-func (a *Agent) buildRequest(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
+func (a *Agent) buildRequest(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	messages = rewriteSyntheticActivations(messages)
 
 	var systemParts []string
@@ -46,7 +46,7 @@ func (a *Agent) buildRequest(ctx context.Context, messages []core.Message, tools
 	return a.generateRequestBody(sendMessages, systemPrompt, newTools, cachedName, reasoning)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
 	apiURL := fmt.Sprintf("%s%s:generateContent", baseAPI, a.model)
 
 	result, code, err := go_pkg_http.POST[Output](ctx, a.httpClient, apiURL, a.headers(), a.buildRequest(ctx, messages, tools, reasoning), "json")
@@ -61,8 +61,8 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 	return out, code, nil
 }
 
-func rewriteSyntheticActivations(messages []core.Message) []core.Message {
-	out := make([]core.Message, 0, len(messages))
+func rewriteSyntheticActivations(messages []llmrouter.Message) []llmrouter.Message {
+	out := make([]llmrouter.Message, 0, len(messages))
 	for i := 0; i < len(messages); i++ {
 		msg := messages[i]
 		if msg.Role == "assistant" && len(msg.ToolCalls) == 1 {
@@ -71,7 +71,7 @@ func rewriteSyntheticActivations(messages []core.Message) []core.Message {
 				next := messages[i+1]
 				if next.Role == "tool" && next.ToolCallID == tc.ID {
 					activation, _ := next.Content.(string)
-					out = append(out, core.Message{
+					out = append(out, llmrouter.Message{
 						Role:    "user",
 						Content: activation,
 					})
@@ -85,7 +85,7 @@ func rewriteSyntheticActivations(messages []core.Message) []core.Message {
 	return out
 }
 
-func (a *Agent) convertToContent(message core.Message) Content {
+func (a *Agent) convertToContent(message llmrouter.Message) Content {
 	content := Content{}
 	if message.ToolCallID != "" {
 		content.Role = "user"
@@ -101,7 +101,7 @@ func (a *Agent) convertToContent(message core.Message) Content {
 				},
 			},
 		}
-		if parts, ok := message.Content.([]core.ContentPart); ok {
+		if parts, ok := message.Content.([]llmrouter.ContentPart); ok {
 			for _, p := range parts {
 				if p.Type == "image_url" && p.ImageURL != nil {
 					url := p.ImageURL.URL
@@ -148,7 +148,7 @@ func (a *Agent) convertToContent(message core.Message) Content {
 	switch v := message.Content.(type) {
 	case string:
 		content.Parts = []Part{{Text: v}}
-	case []core.ContentPart:
+	case []llmrouter.ContentPart:
 		for _, p := range v {
 			switch p.Type {
 			case "text":
@@ -175,7 +175,7 @@ func (a *Agent) convertToContent(message core.Message) Content {
 	return content
 }
 
-func (a *Agent) convertToTools(tools []core.Tool) []map[string]any {
+func (a *Agent) convertToTools(tools []llmrouter.Tool) []map[string]any {
 	newTools := make([]map[string]any, len(tools))
 	for i, tool := range tools {
 		var params map[string]any
@@ -229,7 +229,7 @@ func sanitizeSchema(m map[string]any) {
 	}
 }
 
-func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools []map[string]any, cachedContent string, reasoning core.Reasoning) map[string]any {
+func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools []map[string]any, cachedContent string, reasoning llmrouter.Reasoning) map[string]any {
 	generationConfig := map[string]any{}
 	a.applyReasoning(generationConfig, reasoning)
 
@@ -259,13 +259,13 @@ func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools 
 	return body
 }
 
-func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
-	output := &core.Output{
-		Choices: make([]core.OutputChoices, 1),
+func (a *Agent) convertToOutput(resp *Output) (*llmrouter.Output, error) {
+	output := &llmrouter.Output{
+		Choices: make([]llmrouter.OutputChoices, 1),
 	}
 
 	if resp.UsageMetadata != nil {
-		output.Usage = core.Usage{
+		output.Usage = llmrouter.Usage{
 			Input:     resp.UsageMetadata.PromptTokenCount - resp.UsageMetadata.CachedContentTokenCount,
 			Output:    resp.UsageMetadata.CandidatesTokenCount,
 			CacheRead: resp.UsageMetadata.CachedContentTokenCount,
@@ -281,7 +281,7 @@ func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 	}
 
 	candidate := resp.Candidates[0]
-	var toolCalls []core.ToolCall
+	var toolCalls []llmrouter.ToolCall
 	var textContent strings.Builder
 	var reasoning strings.Builder
 
@@ -302,7 +302,7 @@ func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 				args = string(raw)
 			}
 
-			toolCall := core.ToolCall{
+			toolCall := llmrouter.ToolCall{
 				ID:               part.FunctionCall.Name,
 				Type:             "function",
 				ThoughtSignature: part.ThoughtSignature,
@@ -318,7 +318,7 @@ func (a *Agent) convertToOutput(resp *Output) (*core.Output, error) {
 		return nil, fmt.Errorf("gemini returned no content (finishReason: %s)", candidate.FinishReason)
 	}
 
-	output.Choices[0].Message = core.Message{
+	output.Choices[0].Message = llmrouter.Message{
 		Role:             "assistant",
 		Content:          text,
 		ReasoningContent: reasoning.String(),

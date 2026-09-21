@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -20,7 +20,7 @@ type usageResponse struct {
 	} `json:"limits"`
 }
 
-func Usage(ctx context.Context, config core.Config) (float64, error) {
+func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
 	if config.APIKey == "" {
 		return 0, fmt.Errorf("Usage: APIKey is required")
 	}

@@ -77,8 +77,8 @@ func main() {
 	}
 
 	out, code, err := agent.Send(context.Background(),
-		[]core.Message{{Role: "user", Content: "Summarize Go generics in one sentence."}},
-		nil, core.ReasoningDefault, core.ModeDefault)
+		[]llmrouter.Message{{Role: "user", Content: "Summarize Go generics in one sentence."}},
+		nil, llmrouter.ReasoningDefault, llmrouter.ModeDefault)
 	if err != nil {
 		log.Fatalf("Send: http %d: %v", code, err)
 	}
@@ -97,18 +97,18 @@ func main() {
 `SendStream` is an optional interface obtained by type assertion; agents without streaming fail the assertion.
 
 ```go
-streamAgent, ok := agent.(core.StreamAgent)
+streamAgent, ok := agent.(llmrouter.StreamAgent)
 if !ok {
 	return fmt.Errorf("%s does not support streaming", agent.Name())
 }
 
-events, err := streamAgent.SendStream(ctx, messages, nil, core.ReasoningHigh, core.ModeDefault)
+events, err := streamAgent.SendStream(ctx, messages, nil, llmrouter.ReasoningHigh, llmrouter.ModeDefault)
 if err != nil {
-	var streamErr *core.StreamError
+	var streamErr *llmrouter.StreamError
 	if errors.As(err, &streamErr) {
 		return fmt.Errorf("%s: http %d: %s", streamErr.Provider, streamErr.Code, streamErr.Body)
 	}
-	if errors.Is(err, core.ErrStreamUnsupported) {
+	if errors.Is(err, llmrouter.ErrStreamUnsupported) {
 		return fmt.Errorf("upstream returned a non-SSE response")
 	}
 	return err
@@ -116,17 +116,17 @@ if err != nil {
 
 for evt := range events {
 	switch evt.Type {
-	case core.StreamEventText:
+	case llmrouter.StreamEventText:
 		fmt.Print(evt.TextDelta)
-	case core.StreamEventReasoning:
+	case llmrouter.StreamEventReasoning:
 		fmt.Print(evt.ReasoningDelta)
-	case core.StreamEventToolCall:
+	case llmrouter.StreamEventToolCall:
 		fmt.Printf("\n[tool] %s %s\n", evt.ToolCall.Name, evt.ToolCall.Arguments)
-	case core.StreamEventUsage:
+	case llmrouter.StreamEventUsage:
 		fmt.Printf("\n[usage] in=%d out=%d\n", evt.Usage.Input, evt.Usage.Output)
-	case core.StreamEventError:
+	case llmrouter.StreamEventError:
 		return evt.Err
-	case core.StreamEventDone:
+	case llmrouter.StreamEventDone:
 		fmt.Printf("\n[done] %s\n", evt.FinishReason)
 	}
 }
@@ -135,20 +135,20 @@ for evt := range events {
 ### Reasoning levels and fast mode
 
 ```go
-reasoning, ok := core.ParseReasoning("xhigh") // none / low / medium / high / xhigh / max
+reasoning, ok := llmrouter.ParseReasoning("xhigh") // none / low / medium / high / xhigh / max
 if !ok {
-	reasoning = core.ReasoningDefault          // medium
+	reasoning = llmrouter.ReasoningDefault          // medium
 }
 
 // Ask the model for its supported range; out-of-range requests are clamped
-if limited, ok := agent.(core.ReasoningAgent); ok {
+if limited, ok := agent.(llmrouter.ReasoningAgent); ok {
 	low, high := limited.ReasoningLimits()
-	reasoning = core.ClampReasoning(reasoning, low, high, "claude", "claude-opus-5")
+	reasoning = llmrouter.ClampReasoning(reasoning, low, high, "claude", "claude-opus-5")
 }
 
-mode := core.ModeDefault
-if core.SupportFast("claude", "claude-opus-5") {
-	mode = core.ModeFast
+mode := llmrouter.ModeDefault
+if llmrouter.SupportFast("claude", "claude-opus-5") {
+	mode = llmrouter.ModeFast
 }
 
 out, _, err := agent.Send(ctx, messages, nil, reasoning, mode)
@@ -159,16 +159,16 @@ out, _, err := agent.Send(ctx, messages, nil, reasoning, mode)
 ```go
 params := json.RawMessage(`{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}`)
 
-tools := []core.Tool{{
+tools := []llmrouter.Tool{{
 	Type: "function",
-	Function: core.ToolFunction{
+	Function: llmrouter.ToolFunction{
 		Name:        "get_weather",
 		Description: "Get the current weather for a city",
 		Parameters:  params,
 	},
 }}
 
-out, _, err := agent.Send(ctx, messages, tools, core.ReasoningDefault, core.ModeDefault)
+out, _, err := agent.Send(ctx, messages, tools, llmrouter.ReasoningDefault, llmrouter.ModeDefault)
 if err != nil {
 	return err
 }
@@ -182,12 +182,12 @@ Return tool results with `Role: "tool"` plus `ToolCallID`. Gemini's `ThoughtSign
 ### Multimodal input
 
 ```go
-messages := []core.Message{{
+messages := []llmrouter.Message{{
 	Role: "user",
-	Content: []core.ContentPart{
+	Content: []llmrouter.ContentPart{
 		{Type: "text", Text: "Describe this image."},
-		{Type: "image_url", ImageURL: &core.ImageURL{
-			URL: core.DataURI("image/png", base64.StdEncoding.EncodeToString(raw)),
+		{Type: "image_url", ImageURL: &llmrouter.ImageURL{
+			URL: llmrouter.DataURI("image/png", base64.StdEncoding.EncodeToString(raw)),
 		}},
 	},
 }}
@@ -196,16 +196,16 @@ messages := []core.Message{{
 ### Listing models
 
 ```go
-ids, err := gemini.Models(ctx, core.Config{APIKey: key}, core.ModelFilter{TextOnly: true})
+ids, err := gemini.Models(ctx, llmrouter.Config{APIKey: key}, llmrouter.ModelFilter{TextOnly: true})
 if err != nil {
 	return err
 }
 
 // Image models only; video models never slip through
-images, err := gemini.Models(ctx, core.Config{APIKey: key}, core.ModelFilter{ImageOnly: true})
+images, err := gemini.Models(ctx, llmrouter.Config{APIKey: key}, llmrouter.ModelFilter{ImageOnly: true})
 
 // gemini / mistral / copilot also expose ModelInfos with thinking, efforts, endpoints
-infos, err := gemini.ModelInfos(ctx, core.Config{APIKey: key}, core.ModelFilter{TextOnly: true})
+infos, err := gemini.ModelInfos(ctx, llmrouter.Config{APIKey: key}, llmrouter.ModelFilter{TextOnly: true})
 ```
 
 ### Image generation
@@ -218,12 +218,12 @@ if err != nil {
 	return err
 }
 
-imageAgent, ok := agent.(core.ImageAgent)
+imageAgent, ok := agent.(llmrouter.ImageAgent)
 if !ok {
 	return fmt.Errorf("%s cannot generate images", agent.Name())
 }
 
-result, err := imageAgent.GenerateImage(ctx, "A lighthouse at dawn, watercolor", core.ImageOptions{
+result, err := imageAgent.GenerateImage(ctx, "A lighthouse at dawn, watercolor", llmrouter.ImageOptions{
 	AspectRatio: "16:9",
 	Size:        "1k",
 	Quality:     "high",
@@ -237,20 +237,20 @@ os.WriteFile("out.png", mustDecode(result.B64), 0644)
 ### Speech to text and text to speech
 
 ```go
-sttAgent, ok := agent.(core.STTAgent)
+sttAgent, ok := agent.(llmrouter.STTAgent)
 if !ok {
 	return fmt.Errorf("%s cannot transcribe", agent.Name())
 }
-text, err := sttAgent.Transcribe(ctx, raw, core.STTOptions{MimeType: "audio/mp3", Language: "zh"})
+text, err := sttAgent.Transcribe(ctx, raw, llmrouter.STTOptions{MimeType: "audio/mp3", Language: "zh"})
 if err != nil {
 	return err
 }
 
-ttsAgent, ok := agent.(core.TTSAgent)
+ttsAgent, ok := agent.(llmrouter.TTSAgent)
 if !ok {
 	return fmt.Errorf("%s cannot speak", agent.Name())
 }
-speech, err := ttsAgent.Speak(ctx, text.Text, core.TTSOptions{Voice: "alloy", Format: "mp3"})
+speech, err := ttsAgent.Speak(ctx, text.Text, llmrouter.TTSOptions{Voice: "alloy", Format: "mp3"})
 if err != nil {
 	return err
 }
@@ -260,7 +260,7 @@ os.WriteFile("out."+strings.TrimPrefix(speech.MimeType, "audio/"), speech.Audio,
 ### Querying balance and quota
 
 ```go
-remaining, err := openrouter.Usage(ctx, core.Config{APIKey: key})
+remaining, err := openrouter.Usage(ctx, llmrouter.Config{APIKey: key})
 if err != nil {
 	return err
 }
@@ -320,12 +320,14 @@ type TTSAgent interface {
 
 `Agent` is mandatory; every other interface is reached by type assertion.
 
+The import path is `github.com/pardnchiu/go-llm-router/core`; the package it declares is `llmrouter`, so symbols read as `llmrouter.Agent`.
+
 ### router
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string }` | `Name` is `provider@model`; `Token` carries `*core.CopilotToken` / `*core.CodexToken` / `*core.GrokToken` for OAuth providers |
-| `router.New` | `func(config Config) (core.Agent, error)` | Builds the Agent for the prefix; an unknown prefix containing `@` becomes `compat[<prefix>]@<model>` |
+| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string }` | `Name` is `provider@model`; `Token` carries `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken` for OAuth providers |
+| `router.New` | `func(config Config) (llmrouter.Agent, error)` | Builds the Agent for the prefix; an unknown prefix containing `@` becomes `compat[<prefix>]@<model>` |
 
 ### Provider prefixes
 
@@ -342,11 +344,11 @@ type TTSAgent interface {
 | `openrouter@` | `core/openRouter` | `APIKey` | ✓ | `Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
-| `copilot@` | `core/copilot` | `*core.CopilotToken` | ✓ | `Usage`, `ModelInfos` |
-| `codex@` | `core/openaiCodex` | `*core.CodexToken` | ✓ | Image, `Usage` |
-| `grok-oauth@` | `core/grokOauth` | `*core.GrokToken` | ✓ | Image, `Usage` |
+| `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`, `ModelInfos` |
+| `codex@` | `core/openaiCodex` | `*llmrouter.CodexToken` | ✓ | Image, `Usage` |
+| `grok-oauth@` | `core/grokOauth` | `*llmrouter.GrokToken` | ✓ | Image, `Usage` |
 
-Every provider package exposes `New(core.Config) (*Agent, error)` and `Models(ctx, core.Config, core.ModelFilter) ([]string, error)`.
+Every provider package exposes `New(llmrouter.Config) (*Agent, error)` and `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`.
 
 ### Reasoning levels
 
@@ -466,17 +468,17 @@ type TTSOptions struct{ Voice, Format string } // wav (default) / mp3 / opus / a
 
 | Function | Signature | Description |
 |---|---|---|
-| `Load` | `func() (*core.XxxToken, error)` | Reads and decodes the token from the keychain |
+| `Load` | `func() (*llmrouter.XxxToken, error)` | Reads and decodes the token from the keychain |
 | `HasToken` | `func() bool` | Reports whether a login exists |
 | `ClearToken` | `func() error` | Removes the token, legacy key included |
-| `LoginWithCallback` | `func(ctx, onCode/onURL) (*core.XxxToken, error)` | Device flow for Copilot (yields `*DeviceCode`), PKCE authorization URL for Codex and Grok |
+| `LoginWithCallback` | `func(ctx, onCode/onURL) (*llmrouter.XxxToken, error)` | Device flow for Copilot (yields `*DeviceCode`), PKCE authorization URL for Codex and Grok |
 | `EnsureFresh` / `EnsureFreshSession` | `func(ctx, token[, refresh]) (...)` | Refreshes 60 seconds before expiry; Copilot additionally exchanges a short-lived session token |
 
 ### Usage queries
 
 | Package | Signature | Return semantics |
 |---|---|---|
-| `core/openRouter` | `Usage(ctx, core.Config) (float64, error)` | Remaining credits (`total_credits - total_usage`) |
+| `core/openRouter` | `Usage(ctx, llmrouter.Config) (float64, error)` | Remaining credits (`total_credits - total_usage`) |
 | `core/deepseek` | same | Account balance |
 | `core/ollamaCloud` | same | Remaining monthly quota as a percentage |
 | `core/copilot` | same (needs `Token`) | Remaining percentage of chat or premium interactions |

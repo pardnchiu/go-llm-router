@@ -46,7 +46,7 @@
 ```mermaid
 graph TB
     App[Caller] --> Router[router.New]
-    Router --> Agent[core.Agent]
+    Router --> Agent[llmrouter.Agent]
     Agent --> KeyBased[Key-based providers]
     Agent --> OAuthBased[OAuth providers]
     Agent --> Compat[OpenAI-compatible endpoints]

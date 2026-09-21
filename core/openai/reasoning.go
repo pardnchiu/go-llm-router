@@ -1,32 +1,32 @@
 package openai
 
 import (
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
-func limits(model string) (low, high core.Reasoning) {
-	return core.OpenAIEffortRange(model)
+func limits(model string) (low, high llmrouter.Reasoning) {
+	return llmrouter.OpenAIEffortRange(model)
 }
 
-func (a *Agent) ReasoningLimits() (core.Reasoning, core.Reasoning) {
+func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
 	return limits(a.model)
 }
 
-var effortName = map[core.Reasoning]string{
-	core.ReasoningLow:    "low",
-	core.ReasoningMedium: "medium",
-	core.ReasoningHigh:   "high",
-	core.ReasoningXHigh:  "xhigh",
-	core.ReasoningMax:    "max",
+var effortName = map[llmrouter.Reasoning]string{
+	llmrouter.ReasoningLow:    "low",
+	llmrouter.ReasoningMedium: "medium",
+	llmrouter.ReasoningHigh:   "high",
+	llmrouter.ReasoningXHigh:  "xhigh",
+	llmrouter.ReasoningMax:    "max",
 }
 
-func (a *Agent) effort(reasoning core.Reasoning) (string, bool) {
+func (a *Agent) effort(reasoning llmrouter.Reasoning) (string, bool) {
 	lo, hi := limits(a.model)
-	if lo == hi && lo == core.ReasoningNone {
+	if lo == hi && lo == llmrouter.ReasoningNone {
 		return "", false
 	}
-	level := core.ClampReasoning(reasoning, lo, hi, "openai", a.model)
-	if level == core.ReasoningNone {
+	level := llmrouter.ClampReasoning(reasoning, lo, hi, "openai", a.model)
+	if level == llmrouter.ReasoningNone {
 		return "", false
 	}
 	return effortName[level], true

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -16,7 +16,7 @@ const (
 	modelsAPI = "https://api.githubcopilot.com/models"
 )
 
-func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([]string, error) {
+func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
 	infos, err := ModelInfos(ctx, config, filter)
 	if err != nil {
 		return nil, err
@@ -28,18 +28,18 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 	return ids, nil
 }
 
-func fetchModels(ctx context.Context, client *http.Client, headers map[string]string) (core.CopilotModels, error) {
-	data, status, err := go_pkg_http.GET[core.CopilotModels](ctx, client, modelsAPI, headers)
+func fetchModels(ctx context.Context, client *http.Client, headers map[string]string) (llmrouter.CopilotModels, error) {
+	data, status, err := go_pkg_http.GET[llmrouter.CopilotModels](ctx, client, modelsAPI, headers)
 	if err != nil {
-		return core.CopilotModels{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
+		return llmrouter.CopilotModels{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return core.CopilotModels{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
+		return llmrouter.CopilotModels{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 	return data, nil
 }
 
-func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter) ([]core.ModelInfo, error) {
+func ModelInfos(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]llmrouter.ModelInfo, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
@@ -53,7 +53,7 @@ func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter
 		return nil, err
 	}
 
-	infos := make([]core.ModelInfo, 0, len(data.Data))
+	infos := make([]llmrouter.ModelInfo, 0, len(data.Data))
 	for _, m := range data.Data {
 		id := strings.TrimSpace(m.ID)
 		if id == "" || !m.ModelPickerEnabled || m.Policy.State == "disabled" {
@@ -68,10 +68,10 @@ func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter
 		if m.Capabilities.Type != "" && m.Capabilities.Type != "chat" {
 			continue
 		}
-		if filter.TextOnly && !core.IsTextModel(id) {
+		if filter.TextOnly && !llmrouter.IsTextModel(id) {
 			continue
 		}
-		infos = append(infos, core.ModelInfo{
+		infos = append(infos, llmrouter.ModelInfo{
 			ID:        id,
 			Thinking:  len(m.Capabilities.Supports.ReasoningEffort) > 0,
 			Efforts:   m.Capabilities.Supports.ReasoningEffort,

@@ -9,14 +9,14 @@ import (
 
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 const (
 	modelsAPI = "https://agenvoy-codex.pardn.workers.dev/models"
 )
 
-func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([]string, error) {
+func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
@@ -29,7 +29,7 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[core.Models](ctx, client, modelsAPI, headers)
+	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, modelsAPI, headers)
 	if err != nil {
 		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
@@ -43,7 +43,7 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 		if id == "" {
 			continue
 		}
-		if filter.TextOnly && !core.IsTextModel(id) {
+		if filter.TextOnly && !llmrouter.IsTextModel(id) {
 			continue
 		}
 		ids = append(ids, id)

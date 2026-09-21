@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -43,8 +43,8 @@ func flattenContent(c any) string {
 	return fmt.Sprintf("%v", c)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
-	var merged []core.Message
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
+	var merged []llmrouter.Message
 	var systemParts []string
 	for _, m := range messages {
 		if m.Role == "system" {
@@ -53,7 +53,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 				systemParts = append(systemParts, s)
 			}
 		} else {
-			merged = append(merged, core.Message{
+			merged = append(merged, llmrouter.Message{
 				Role:       m.Role,
 				Content:    flattenContent(m.Content),
 				ToolCalls:  m.ToolCalls,
@@ -62,7 +62,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 		}
 	}
 	if len(systemParts) > 0 {
-		merged = append([]core.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
+		merged = append([]llmrouter.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
 	}
 
 	input := map[string]any{

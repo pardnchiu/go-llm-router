@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -16,7 +16,7 @@ const (
 	modelsAPI = "https://generativelanguage.googleapis.com/v1beta/models"
 )
 
-func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([]string, error) {
+func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
 	infos, err := ModelInfos(ctx, config, filter)
 	if err != nil {
 		return nil, err
@@ -28,13 +28,13 @@ func Models(ctx context.Context, config core.Config, filter core.ModelFilter) ([
 	return ids, nil
 }
 
-func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter) ([]core.ModelInfo, error) {
+func ModelInfos(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]llmrouter.ModelInfo, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[core.GeminiModels](ctx, client, modelsAPI+"?key="+config.APIKey, nil)
+	data, status, err := go_pkg_http.GET[llmrouter.GeminiModels](ctx, client, modelsAPI+"?key="+config.APIKey, nil)
 	if err != nil {
 		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
@@ -42,16 +42,16 @@ func ModelInfos(ctx context.Context, config core.Config, filter core.ModelFilter
 		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
-	infos := make([]core.ModelInfo, 0, len(data.Models))
+	infos := make([]llmrouter.ModelInfo, 0, len(data.Models))
 	for _, m := range data.Models {
 		name := strings.TrimPrefix(m.Name, "models/")
 		if name == "" || !slices.Contains(m.SupportedGenerationMethods, "generateContent") {
 			continue
 		}
-		if !core.MatchModelFilter(name, filter) {
+		if !llmrouter.MatchModelFilter(name, filter) {
 			continue
 		}
-		infos = append(infos, core.ModelInfo{ID: name, Thinking: m.Thinking})
+		infos = append(infos, llmrouter.ModelInfo{ID: name, Thinking: m.Thinking})
 	}
 	return infos, nil
 }

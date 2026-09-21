@@ -83,7 +83,7 @@ graph TB
     Lookup -- 否且含 @ --> Rewrite["改寫為 compat[prefix]@model"]
     Lookup -- 否且無 @ --> Err[unknown provider 錯誤]
     Rewrite --> Build
-    Build --> Agent[core.Agent]
+    Build --> Agent[llmrouter.Agent]
 ```
 
 前綴另支援方括號實例名（`compat[lmstudio]@model`），`compatPrefix` 取出實例名後成為 Agent `Name()` 的前綴，讓同一個 compat 轉接層可同時代表多個端點。
@@ -105,8 +105,8 @@ graph TB
     New --> Send
     New --> StreamFile
     Send --> CoreHTTP[core / go-pkg http]
-    StreamFile --> CoreStream[core.OpenStream]
-    Models --> Filter[core.MatchModelFilter]
+    StreamFile --> CoreStream[llmrouter.OpenStream]
+    Models --> Filter[llmrouter.MatchModelFilter]
 ```
 
 | 群組 | 套件 | 線路格式 |
@@ -163,13 +163,13 @@ graph TB
 
 ```mermaid
 graph TB
-    ImageAgent[core.ImageAgent] --> OpenAIImg[openai<br/>/v1/images/*]
+    ImageAgent[llmrouter.ImageAgent] --> OpenAIImg[openai<br/>/v1/images/*]
     ImageAgent --> CodexImg[codex<br/>Responses image_generation]
     ImageAgent --> GeminiImg[gemini<br/>:generateContent]
     ImageAgent --> GrokImg[grok / grok-oauth<br/>/v1/images/*]
-    STT[core.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
+    STT[llmrouter.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
     STT --> GeminiSTT[gemini<br/>逐字轉寫]
-    TTS[core.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
+    TTS[llmrouter.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
     TTS --> GeminiTTS[gemini<br/>AUDIO 模態 + WrapPCM16]
 ```
 
@@ -180,7 +180,7 @@ graph TB
 ```mermaid
 graph LR
     Models[provider.Models] --> Fetch[抓取供應商模型清單]
-    Fetch --> Match[core.MatchModelFilter]
+    Fetch --> Match[llmrouter.MatchModelFilter]
     Match --> TextOnly[TextOnly]
     Match --> STTOnly[STTOnly]
     Match --> TTSOnly[TTSOnly]
@@ -203,7 +203,7 @@ sequenceDiagram
     participant API as 供應商端點
 
     Caller->>Router: Config{Name, APIKey/Token}
-    Router-->>Caller: core.Agent
+    Router-->>Caller: llmrouter.Agent
     Caller->>Agent: Send / SendStream
     Agent->>Core: ClampReasoning / SupportFast / SupportTemperature
     Agent->>Agent: 訊息與工具轉換

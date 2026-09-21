@@ -83,7 +83,7 @@ graph TB
     Lookup -- "no, but has @" --> Rewrite["Rewrite to compat[prefix]@model"]
     Lookup -- "no, no @" --> Err[unknown provider error]
     Rewrite --> Build
-    Build --> Agent[core.Agent]
+    Build --> Agent[llmrouter.Agent]
 ```
 
 Prefixes also carry a bracketed instance name (`compat[lmstudio]@model`); `compatPrefix` extracts it and it becomes the Agent's `Name()` prefix, so one compat adapter can represent several endpoints at once.
@@ -105,8 +105,8 @@ graph TB
     New --> Send
     New --> StreamFile
     Send --> CoreHTTP[core / go-pkg http]
-    StreamFile --> CoreStream[core.OpenStream]
-    Models --> Filter[core.MatchModelFilter]
+    StreamFile --> CoreStream[llmrouter.OpenStream]
+    Models --> Filter[llmrouter.MatchModelFilter]
 ```
 
 | Group | Packages | Wire format |
@@ -163,13 +163,13 @@ graph TB
 
 ```mermaid
 graph TB
-    ImageAgent[core.ImageAgent] --> OpenAIImg[openai<br/>/v1/images/*]
+    ImageAgent[llmrouter.ImageAgent] --> OpenAIImg[openai<br/>/v1/images/*]
     ImageAgent --> CodexImg[codex<br/>Responses image_generation]
     ImageAgent --> GeminiImg[gemini<br/>:generateContent]
     ImageAgent --> GrokImg[grok / grok-oauth<br/>/v1/images/*]
-    STT[core.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
+    STT[llmrouter.STTAgent] --> OpenAISTT[openai<br/>/v1/audio/transcriptions]
     STT --> GeminiSTT[gemini<br/>verbatim transcript]
-    TTS[core.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
+    TTS[llmrouter.TTSAgent] --> OpenAITTS[openai<br/>/v1/audio/speech]
     TTS --> GeminiTTS[gemini<br/>AUDIO modality + WrapPCM16]
 ```
 
@@ -180,7 +180,7 @@ Image and audio models are the agent model; `codex` alone generates from its cha
 ```mermaid
 graph LR
     Models[provider.Models] --> Fetch[Fetch the provider's model list]
-    Fetch --> Match[core.MatchModelFilter]
+    Fetch --> Match[llmrouter.MatchModelFilter]
     Match --> TextOnly[TextOnly]
     Match --> STTOnly[STTOnly]
     Match --> TTSOnly[TTSOnly]
@@ -203,7 +203,7 @@ sequenceDiagram
     participant API as Provider endpoint
 
     Caller->>Router: Config{Name, APIKey/Token}
-    Router-->>Caller: core.Agent
+    Router-->>Caller: llmrouter.Agent
     Caller->>Agent: Send / SendStream
     Agent->>Core: ClampReasoning / SupportFast / SupportTemperature
     Agent->>Agent: Convert messages and tools

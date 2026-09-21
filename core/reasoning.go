@@ -1,4 +1,4 @@
-package core
+package llmrouter
 
 import (
 	"log/slog"

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 const (
@@ -24,7 +24,7 @@ type usageResponse struct {
 	} `json:"config"`
 }
 
-func Usage(ctx context.Context, config core.Config) (float64, error) {
+func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
 	if config.APIKey == "" {
 		return 0, fmt.Errorf("Usage: APIKey is required")
 	}
@@ -45,12 +45,12 @@ func Usage(ctx context.Context, config core.Config) (float64, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, core.ErrorBodyLimit))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, llmrouter.ErrorBodyLimit))
 		return 0, fmt.Errorf("grok usage http %d: %s", resp.StatusCode, raw)
 	}
 
 	var usage usageResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, core.JSONBodyLimit)).Decode(&usage); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, llmrouter.JSONBodyLimit)).Decode(&usage); err != nil {
 		return 0, fmt.Errorf("json.Decode: %w", err)
 	}
 

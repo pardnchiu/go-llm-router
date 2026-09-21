@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -55,7 +55,7 @@ func (a *Agent) generate(ctx context.Context, payload map[string]any) (*generate
 	return &result, nil
 }
 
-func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts core.STTOptions) (*core.STTResult, error) {
+func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts llmrouter.STTOptions) (*llmrouter.STTResult, error) {
 	if len(audio) == 0 {
 		return nil, fmt.Errorf("gemini.Transcribe: audio is empty")
 	}
@@ -96,10 +96,10 @@ func (a *Agent) Transcribe(ctx context.Context, audio []byte, opts core.STTOptio
 	if text.Len() == 0 {
 		return nil, fmt.Errorf("gemini.Transcribe: no transcript in response")
 	}
-	return &core.STTResult{Text: strings.TrimSpace(text.String())}, nil
+	return &llmrouter.STTResult{Text: strings.TrimSpace(text.String())}, nil
 }
 
-func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*core.TTSResult, error) {
+func (a *Agent) Speak(ctx context.Context, text string, opts llmrouter.TTSOptions) (*llmrouter.TTSResult, error) {
 	if strings.TrimSpace(text) == "" {
 		return nil, fmt.Errorf("gemini.Speak: text is empty")
 	}
@@ -135,8 +135,8 @@ func (a *Agent) Speak(ctx context.Context, text string, opts core.TTSOptions) (*
 			if err != nil {
 				return nil, fmt.Errorf("base64.Decode: %w", err)
 			}
-			return &core.TTSResult{
-				Audio:    core.WrapPCM16(pcm, core.PCMRate(part.InlineData.MimeType)),
+			return &llmrouter.TTSResult{
+				Audio:    llmrouter.WrapPCM16(pcm, llmrouter.PCMRate(part.InlineData.MimeType)),
 				MimeType: "audio/wav",
 			}, nil
 		}

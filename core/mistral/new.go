@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 type Agent struct {
@@ -18,13 +18,13 @@ const (
 	Prefix = "mistral@"
 )
 
-func New(config core.Config) (*Agent, error) {
+func New(config llmrouter.Config) (*Agent, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("mistral.New: APIKey is required")
 	}
 
 	return &Agent{
-		httpClient: core.NewHTTPClient(),
+		httpClient: llmrouter.NewHTTPClient(),
 		model:      config.Model,
 		apiKey:     config.APIKey,
 		thinking:   config.Thinking,

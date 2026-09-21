@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	copilotResponse "github.com/pardnchiu/go-llm-router/core/copilot/response"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
@@ -28,9 +28,9 @@ func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	}, nil
 }
 
-func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
+func (a *Agent) buildResponsesBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	var instructions string
-	nonSystem := make([]core.Message, 0, len(messages))
+	nonSystem := make([]llmrouter.Message, 0, len(messages))
 	for _, m := range messages {
 		if m.Role == "system" {
 			if s, ok := m.Content.(string); ok {
@@ -57,13 +57,13 @@ func (a *Agent) buildResponsesBody(messages []core.Message, tools []core.Tool, r
 	return body
 }
 
-func (a *Agent) buildChatBody(messages []core.Message, tools []core.Tool, reasoning core.Reasoning) map[string]any {
+func (a *Agent) buildChatBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	body := map[string]any{
 		"model":    a.model,
 		"messages": messages,
 		"tools":    tools,
 	}
-	if core.SupportTemperature("copilot", a.model) {
+	if llmrouter.SupportTemperature("copilot", a.model) {
 		body["temperature"] = 0.2
 	}
 	if effort, ok := a.effort(reasoning); ok {
@@ -121,10 +121,10 @@ func (a *Agent) useResponses(ctx context.Context) bool {
 			return false
 		}
 	}
-	return core.ResponsesAPI("copilot", a.model)
+	return llmrouter.ResponsesAPI("copilot", a.model)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.Tool, reasoning core.Reasoning, mode core.Mode) (*core.Output, int, error) {
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
 	headers, err := a.headers(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -147,7 +147,7 @@ func (a *Agent) Send(ctx context.Context, messages []core.Message, tools []core.
 
 	body := a.buildChatBody(messages, tools, reasoning)
 
-	result, code, err := go_pkg_http.POST[core.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
+	result, code, err := go_pkg_http.POST[llmrouter.Output](ctx, a.httpClient, chatAPI, headers, body, "json")
 	if err != nil {
 		return nil, code, err
 	}

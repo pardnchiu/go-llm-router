@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pardnchiu/go-llm-router/core"
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
@@ -23,7 +23,7 @@ type imageResponse struct {
 	Error any `json:"error"`
 }
 
-func imageBody(model, prompt string, opts core.ImageOptions) map[string]any {
+func imageBody(model, prompt string, opts llmrouter.ImageOptions) map[string]any {
 	body := map[string]any{
 		"model":           model,
 		"prompt":          prompt,
@@ -43,12 +43,12 @@ func imageBody(model, prompt string, opts core.ImageOptions) map[string]any {
 		body["quality"] = opts.Quality
 	}
 	if opts.RefImageB64 != "" {
-		body["image"] = map[string]any{"url": core.DataURI(opts.RefMime, opts.RefImageB64)}
+		body["image"] = map[string]any{"url": llmrouter.DataURI(opts.RefMime, opts.RefImageB64)}
 	}
 	return body
 }
 
-func RequestImage(ctx context.Context, client *http.Client, headers map[string]string, model, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func RequestImage(ctx context.Context, client *http.Client, headers map[string]string, model, prompt string, opts llmrouter.ImageOptions) (*llmrouter.ImageResult, error) {
 	endpoint := imageAPI
 	if opts.RefImageB64 != "" {
 		endpoint = imageEditAPI
@@ -69,9 +69,9 @@ func RequestImage(ctx context.Context, client *http.Client, headers map[string]s
 	if mime == "" {
 		mime = "image/jpeg"
 	}
-	return &core.ImageResult{B64: result.Data[0].B64JSON, MimeType: mime}, nil
+	return &llmrouter.ImageResult{B64: result.Data[0].B64JSON, MimeType: mime}, nil
 }
 
-func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts core.ImageOptions) (*core.ImageResult, error) {
+func (a *Agent) GenerateImage(ctx context.Context, prompt string, opts llmrouter.ImageOptions) (*llmrouter.ImageResult, error) {
 	return RequestImage(ctx, a.httpClient, a.headers(), a.model, prompt, opts)
 }
