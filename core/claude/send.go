@@ -144,6 +144,9 @@ func (a *Agent) convertToMessage(message llmrouter.Message) map[string]any {
 		for _, tool := range message.ToolCalls {
 			var input map[string]any
 			json.Unmarshal([]byte(tool.Function.Arguments), &input)
+			if input == nil {
+				input = map[string]any{}
+			}
 			content = append(content, map[string]any{
 				"type":  "tool_use",
 				"id":    tool.ID,
