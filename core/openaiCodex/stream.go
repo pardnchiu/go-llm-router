@@ -14,7 +14,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 		return nil, err
 	}
 
-	resp, err := llmrouter.OpenStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning), label)
+	resp, err := llmrouter.OpenStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(ctx, messages, tools, reasoning), label)
 	if err != nil {
 		return nil, err
 	}

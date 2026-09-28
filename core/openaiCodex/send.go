@@ -3,8 +3,6 @@ package openaicodex
 import (
 	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,11 +15,7 @@ import (
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
-const (
-	responsesAPI      = "https://chatgpt.com/backend-api/codex/responses"
-	promptCachePrefix = "agenvoy-"
-	promptCacheKeyLen = 24
-)
+const responsesAPI = "https://chatgpt.com/backend-api/codex/responses"
 
 func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	auth, err := a.authHeader(ctx)
@@ -36,10 +30,13 @@ func (a *Agent) headers(ctx context.Context) (map[string]string, error) {
 	if a.token != nil && a.token.AccountID != "" {
 		headers["ChatGPT-Account-Id"] = a.token.AccountID
 	}
+	if session := llmrouter.SessionUUID(ctx); session != "" {
+		headers["session_id"] = session
+	}
 	return headers, nil
 }
 
-func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
+func (a *Agent) buildBody(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning) map[string]any {
 	var instructions string
 	var nonSystem []llmrouter.Message
 	for _, m := range messages {
@@ -66,8 +63,8 @@ func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool, 
 	if effort, ok := a.effort(reasoning); ok {
 		body["reasoning"] = map[string]any{"effort": effort, "summary": "auto"}
 	}
-	if key := promptCacheKey(instructions); key != "" {
-		body["prompt_cache_key"] = key
+	if session := llmrouter.SessionUUID(ctx); session != "" {
+		body["prompt_cache_key"] = session
 	}
 	return body
 }
@@ -78,7 +75,7 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 		return nil, 0, err
 	}
 
-	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(messages, tools, reasoning), "json")
+	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, responsesAPI, headers, a.buildBody(ctx, messages, tools, reasoning), "json")
 	if err != nil {
 		return nil, 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POSTStream: %w", err)
 	}
@@ -98,14 +95,6 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 		return nil, resp.StatusCode, err
 	}
 	return out, resp.StatusCode, nil
-}
-
-func promptCacheKey(instructions string) string {
-	if instructions == "" {
-		return ""
-	}
-	sum := sha256.Sum256([]byte(instructions))
-	return promptCachePrefix + hex.EncodeToString(sum[:])[:promptCacheKeyLen]
 }
 
 type sseEvent struct {
