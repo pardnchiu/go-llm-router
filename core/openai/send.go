@@ -21,7 +21,7 @@ func (a *Agent) headers() map[string]string {
 	}
 }
 
-func (a *Agent) buildResponsesBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
+func (a *Agent) buildResponsesBody(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
 	var instructions string
 	nonSystem := make([]llmrouter.Message, 0, len(messages))
 	for _, m := range messages {
@@ -50,10 +50,13 @@ func (a *Agent) buildResponsesBody(messages []llmrouter.Message, tools []llmrout
 	if fast {
 		body["service_tier"] = "priority"
 	}
+	if session := llmrouter.SessionUUID(ctx); session != "" {
+		body["prompt_cache_key"] = session
+	}
 	return body
 }
 
-func (a *Agent) buildChatBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
+func (a *Agent) buildChatBody(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
 	body := map[string]any{
 		"model":    a.model,
 		"messages": messages,
@@ -68,6 +71,9 @@ func (a *Agent) buildChatBody(messages []llmrouter.Message, tools []llmrouter.To
 	if fast {
 		body["service_tier"] = "priority"
 	}
+	if session := llmrouter.SessionUUID(ctx); session != "" {
+		body["prompt_cache_key"] = session
+	}
 	return body
 }
 
@@ -75,7 +81,7 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 	fast := mode == llmrouter.ModeFast && llmrouter.SupportFast("openai", a.model)
 
 	if llmrouter.ResponsesAPI("openai", a.model) {
-		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, a.headers(), a.buildResponsesBody(messages, tools, reasoning, fast), "json")
+		result, code, err := go_pkg_http.POST[copilotResponse.Output](ctx, a.httpClient, responsesAPI, a.headers(), a.buildResponsesBody(ctx, messages, tools, reasoning, fast), "json")
 		if err != nil {
 			return nil, code, err
 		}
@@ -90,7 +96,7 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 		return &out, code, nil
 	}
 
-	result, code, err := go_pkg_http.POST[llmrouter.Output](ctx, a.httpClient, chatAPI, a.headers(), a.buildChatBody(messages, tools, reasoning, fast), "json")
+	result, code, err := go_pkg_http.POST[llmrouter.Output](ctx, a.httpClient, chatAPI, a.headers(), a.buildChatBody(ctx, messages, tools, reasoning, fast), "json")
 	if err != nil {
 		return nil, code, err
 	}

@@ -3,48 +3,14 @@ package grok
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
+	"github.com/pardnchiu/go-llm-router/core/xai"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
-
-const (
-	chatAPI = "https://api.x.ai/v1/chat/completions"
-)
-
-func (a *Agent) buildBody(messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
-	var merged []llmrouter.Message
-	var systemParts []string
-	for _, m := range messages {
-		if m.Role == "system" {
-			if s, ok := m.Content.(string); ok && s != "" {
-				systemParts = append(systemParts, s)
-			}
-		} else {
-			merged = append(merged, m)
-		}
-	}
-	if len(systemParts) > 0 {
-		merged = append([]llmrouter.Message{{Role: "system", Content: strings.Join(systemParts, "\n\n")}}, merged...)
-	}
-
-	body := map[string]any{
-		"model":    a.model,
-		"messages": merged,
-		"tools":    tools,
-	}
-	if llmrouter.SupportTemperature("grok", a.model) {
-		body["temperature"] = 0.2
-	}
-	if effort, ok := a.effort(reasoning); ok {
-		body["reasoning_effort"] = effort
-	}
-	if fast {
-		body["service_tier"] = "priority"
-	}
-	return body
-}
 
 func (a *Agent) headers() map[string]string {
 	return map[string]string{
@@ -53,18 +19,35 @@ func (a *Agent) headers() map[string]string {
 	}
 }
 
-func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
-	fast := mode == llmrouter.ModeFast && llmrouter.SupportFast("grok", a.model)
+func (a *Agent) buildBody(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
+	effort, _ := a.effort(reasoning)
+	return xai.BuildBody(ctx, a.model, messages, tools, effort, fast)
+}
 
-	out, code, err := go_pkg_http.POST[llmrouter.Output](ctx, a.httpClient, chatAPI, a.headers(), a.buildBody(messages, tools, reasoning, fast), "json")
+func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
+	fast := mode == llmrouter.ModeFast && llmrouter.SupportFast(label, a.model)
+
+	resp, err := go_pkg_http.POSTStream(ctx, a.httpClient, xai.ResponsesAPI, a.headers(), a.buildBody(ctx, messages, tools, reasoning, fast), "json")
 	if err != nil {
-		return nil, code, err
+		return nil, 0, fmt.Errorf("go_pkg_http.POSTStream: %w", err)
 	}
-	if out.Error != nil {
-		return nil, code, fmt.Errorf("%s: %s", label, out.Error.Message)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, llmrouter.ErrorBodyLimit))
+		return nil, resp.StatusCode, &llmrouter.StreamError{
+			Provider: label,
+			Code:     resp.StatusCode,
+			Body:     strings.TrimSpace(string(raw)),
+		}
+	}
+
+	out, err := xai.ParseSSEStream(label, resp)
+	if err != nil {
+		return nil, resp.StatusCode, err
 	}
 	if fast {
-		llmrouter.WarnFastDowngrade("grok", a.model, out.ServiceTier)
+		llmrouter.WarnFastDowngrade(label, a.model, out.ServiceTier)
 	}
-	return &out, code, nil
+	return out, resp.StatusCode, nil
 }

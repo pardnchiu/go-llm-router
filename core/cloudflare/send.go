@@ -78,6 +78,9 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 		"Content-Type":      "application/json",
 		"cf-aig-gateway-id": a.gatewayID,
 	}
+	if session := llmrouter.SessionUUID(ctx); session != "" {
+		headers["x-session-affinity"] = session
+	}
 
 	resp, code, err := go_pkg_http.POST[response](ctx, a.httpClient, a.endpoint(), headers, map[string]any{
 		"model": a.model,
