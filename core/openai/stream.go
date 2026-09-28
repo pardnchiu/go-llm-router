@@ -12,7 +12,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 	fast := mode == llmrouter.ModeFast && llmrouter.SupportFast(label, a.model)
 
 	if llmrouter.ResponsesAPI(label, a.model) {
-		body := a.buildResponsesBody(messages, tools, reasoning, fast)
+		body := a.buildResponsesBody(ctx, messages, tools, reasoning, fast)
 		body["stream"] = true
 
 		resp, err := llmrouter.OpenStream(ctx, a.httpClient, responsesAPI, a.headers(), body, label)
@@ -22,7 +22,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 		return llmrouter.StreamResponses(resp, label), nil
 	}
 
-	body := a.buildChatBody(messages, tools, reasoning, fast)
+	body := a.buildChatBody(ctx, messages, tools, reasoning, fast)
 	body["stream"] = true
 	body["stream_options"] = map[string]any{"include_usage": true}
 
