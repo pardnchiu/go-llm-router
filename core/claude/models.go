@@ -12,19 +12,12 @@ import (
 )
 
 const (
-	modelsAPI = "https://api.anthropic.com/v1/models"
+	modelsAPI = "https://models.agenvoy.com?target=claude"
 )
 
-func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
-	if config.APIKey == "" {
-		return nil, fmt.Errorf("Models: APIKey is required")
-	}
-
+func Models(ctx context.Context, _ llmrouter.Config, filter llmrouter.ModelFilter) ([]string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, modelsAPI, map[string]string{
-		"x-api-key":         config.APIKey,
-		"anthropic-version": "2023-06-01",
-	})
+	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, modelsAPI, nil)
 	if err != nil {
 		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
