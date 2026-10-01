@@ -157,15 +157,9 @@ func ConvertOutput(r Output) llmrouter.Output {
 			}
 		case "function_call":
 			msg.ToolCalls = append(msg.ToolCalls, llmrouter.ToolCall{
-				ID:   item.CallID,
-				Type: "function",
-				Function: struct {
-					Name      string `json:"name"`
-					Arguments string `json:"arguments"`
-				}{
-					Name:      item.Name,
-					Arguments: item.Arguments,
-				},
+				ID:       item.CallID,
+				Type:     "function",
+				Function: llmrouter.ToolCallFunction{Name: item.Name, Arguments: item.Arguments},
 			})
 		}
 	}

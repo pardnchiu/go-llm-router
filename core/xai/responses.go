@@ -214,15 +214,9 @@ func ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error
 			}
 		}
 		toolCalls = append(toolCalls, llmrouter.ToolCall{
-			ID:   p.callID,
-			Type: "function",
-			Function: struct {
-				Name      string `json:"name"`
-				Arguments string `json:"arguments"`
-			}{
-				Name:      p.name,
-				Arguments: args,
-			},
+			ID:       p.callID,
+			Type:     "function",
+			Function: llmrouter.ToolCallFunction{Name: p.name, Arguments: args},
 		})
 	}
 
