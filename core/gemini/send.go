@@ -302,14 +302,12 @@ func (a *Agent) convertToOutput(resp *Output) (*llmrouter.Output, error) {
 				args = string(raw)
 			}
 
-			toolCall := llmrouter.ToolCall{
+			toolCalls = append(toolCalls, llmrouter.ToolCall{
 				ID:               part.FunctionCall.Name,
 				Type:             "function",
+				Function:         llmrouter.ToolCallFunction{Name: part.FunctionCall.Name, Arguments: args},
 				ThoughtSignature: part.ThoughtSignature,
-			}
-			toolCall.Function.Name = part.FunctionCall.Name
-			toolCall.Function.Arguments = args
-			toolCalls = append(toolCalls, toolCall)
+			})
 		}
 	}
 

@@ -181,13 +181,15 @@ func (t *CodexToken) Expired() bool {
 }
 
 type ToolCall struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
-	ThoughtSignature string `json:"thought_signature,omitempty"` // Gemini thinking models
+	ID               string           `json:"id"`
+	Type             string           `json:"type"`
+	Function         ToolCallFunction `json:"function"`
+	ThoughtSignature string           `json:"thought_signature,omitempty"` // Gemini thinking models
+}
+
+type ToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 type Output struct {
