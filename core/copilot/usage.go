@@ -25,10 +25,10 @@ type userResponse struct {
 	} `json:"quota_snapshots"`
 }
 
-func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
+func Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaining, error) {
 	token, ok := config.Token.(*llmrouter.CopilotToken)
 	if !ok || token == nil {
-		return 0, fmt.Errorf("Usage: Token is required")
+		return llmrouter.UsageRemaining{}, fmt.Errorf("Usage: Token is required")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -37,15 +37,15 @@ func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
 		"Editor-Version": "vscode/1.96.2",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 
 	snap := data.QuotaSnapshots.Chat
 	if snap.Entitlement == 0 {
 		snap = data.QuotaSnapshots.PremiumInteractions
 	}
-	return snap.PercentRemaining, nil
+	return llmrouter.UsageRemaining{Total: &snap.PercentRemaining}, nil
 }

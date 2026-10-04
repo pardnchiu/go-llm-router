@@ -216,6 +216,13 @@ type Usage struct {
 	CacheRead   int `json:"cache_read_input_tokens,omitempty"`
 }
 
+type UsageRemaining struct {
+	FiveHour *float64 `json:"five_hour,omitempty"`
+	Week     *float64 `json:"week,omitempty"`
+	Balance  *float64 `json:"balance,omitempty"`
+	Total    *float64 `json:"total,omitempty"`
+}
+
 func (u *Usage) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		InputTokens              int `json:"input_tokens"`
