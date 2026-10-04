@@ -20,9 +20,9 @@ type usageResponse struct {
 	} `json:"limits"`
 }
 
-func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
+func Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaining, error) {
 	if config.APIKey == "" {
-		return 0, fmt.Errorf("Usage: APIKey is required")
+		return llmrouter.UsageRemaining{}, fmt.Errorf("Usage: APIKey is required")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -30,14 +30,15 @@ func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
 		"Authorization": "Bearer " + config.APIKey,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
 	}
 	if status != http.StatusOK {
-		return 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: http %d", status)
 	}
 	if data.Limits.Monthly.Usage == nil {
-		return 0, fmt.Errorf("no limits.monthly.usage returned")
+		return llmrouter.UsageRemaining{}, fmt.Errorf("no limits.monthly.usage returned")
 	}
 
-	return (1 - *data.Limits.Monthly.Usage) * 100, nil
+	total := (1 - *data.Limits.Monthly.Usage) * 100
+	return llmrouter.UsageRemaining{Total: &total}, nil
 }

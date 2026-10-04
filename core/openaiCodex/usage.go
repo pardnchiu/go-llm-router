@@ -24,14 +24,14 @@ type usageResponse struct {
 	} `json:"rate_limit"`
 }
 
-func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
+func Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaining, error) {
 	if config.APIKey == "" {
-		return 0, fmt.Errorf("Usage: APIKey is required")
+		return llmrouter.UsageRemaining{}, fmt.Errorf("Usage: APIKey is required")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, usageAPI, nil)
 	if err != nil {
-		return 0, fmt.Errorf("http.NewRequestWithContext: %w", err)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("http.NewRequestWithContext: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 	if config.AccountID != "" {
@@ -41,22 +41,20 @@ func Usage(ctx context.Context, config llmrouter.Config) (float64, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("http.Do: %w", err)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("http.Do: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, llmrouter.ErrorBodyLimit))
-		return 0, fmt.Errorf("codex usage http %d: %s", resp.StatusCode, raw)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("codex usage http %d: %s", resp.StatusCode, raw)
 	}
 
 	var usage usageResponse
 	if err := json.NewDecoder(io.LimitReader(resp.Body, llmrouter.JSONBodyLimit)).Decode(&usage); err != nil {
-		return 0, fmt.Errorf("json.Decode: %w", err)
+		return llmrouter.UsageRemaining{}, fmt.Errorf("json.Decode: %w", err)
 	}
 
-	used := usage.RateLimit.PrimaryWindow.UsedPercent
-	if usage.RateLimit.SecondaryWindow.UsedPercent > used {
-		used = usage.RateLimit.SecondaryWindow.UsedPercent
-	}
-	return 100 - used, nil
+	fiveHour := 100 - usage.RateLimit.PrimaryWindow.UsedPercent
+	week := 100 - usage.RateLimit.SecondaryWindow.UsedPercent
+	return llmrouter.UsageRemaining{FiveHour: &fiveHour, Week: &week}, nil
 }
