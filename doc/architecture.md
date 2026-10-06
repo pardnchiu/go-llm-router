@@ -1,5 +1,7 @@
 # go-llm-router - Architecture
 
+Last updated: 2026-10-06
+
 > Back to [README](../README.md)
 
 ## Table of Contents
@@ -38,7 +40,7 @@ graph TB
     Core --> HTTP[go-pkg http]
 ```
 
-`core` defines contracts and shared behavior and knows no concrete provider; provider packages depend on `core` one-way and never on each other, with exactly two exceptions: `grokOauth` reuses `grok.RequestImage`, and `openaiCodex` reuses the `openai` image helpers.
+`core` defines contracts and shared behavior and knows no concrete provider; provider packages depend on `core` one-way. Shared wire logic lives in two helper packages: `core/copilot/response` (Responses input/tool conversion, used by `copilot`, `openai`, `openaiCodex`, and `core/xai`) and `core/xai` (Responses body and SSE parsing, used by `grok` and `grokOauth`). Only two direct provider-to-provider imports exist: `grokOauth` reuses `grok.RequestImage`, and `openaiCodex` reuses the `openai` image helpers.
 
 ## Module: core
 
@@ -55,6 +57,7 @@ graph TB
         SSE[sse.go<br/>ScanSSE]
         Image[image.go<br/>ImageAgent / ImagePixelSize]
         Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
+        Session[session.go<br/>WithSessionID / SessionUUID]
     end
     Stream --> SSE
     Image --> Type
@@ -70,6 +73,7 @@ graph TB
 | `provider.go` | `temperature` support, Responses API routing, the shared HTTP client |
 | `stream.go` / `sse.go` | SSE scanning, event normalization for both stream formats, error wrapping and read caps |
 | `image.go` / `audio.go` | Optional multimodal interfaces plus pure helpers for sizing, sample rate, and WAV framing |
+| `session.go` | Context-scoped session ID, hashed into a UUID that providers send as a prompt-cache key or affinity header |
 
 ## Module: router
 
@@ -113,8 +117,8 @@ graph TB
 |---|---|---|
 | OpenAI-compatible | `openai`, `deepseek`, `mistral`, `nvidia`, `openRouter`, `ollamaCloud`, `cloudflare`, `compat` | Chat Completions; newer OpenAI generations switch to Responses |
 | Anthropic | `claude` | Messages API with thinking-budget conversion |
-| Google | `gemini` | `:generateContent` with schema sanitization and `cachedContents` |
-| xAI | `grok`, `grokOauth` | Responses API plus the image endpoints |
+| Google | `gemini` | `:generateContent` with raw JSON Schema tools (`parametersJsonSchema`) and `cachedContents` |
+| xAI | `grok`, `grokOauth` | Responses API via the shared `core/xai` body builder and SSE parser, plus the image endpoints |
 | OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal Responses endpoints requiring a session token |
 
 ## Module: streaming

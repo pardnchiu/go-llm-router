@@ -1,5 +1,7 @@
 # go-llm-router - 架構
 
+最後更新：2026-10-06
+
 > 返回 [README](./README.zh.md)
 
 ## 目錄
@@ -38,7 +40,7 @@ graph TB
     Core --> HTTP[go-pkg http]
 ```
 
-`core` 只定義契約與共用行為，不認識任何具體供應商；供應商套件單向相依 `core`，彼此不互相引用（唯二例外：`grokOauth` 共用 `grok.RequestImage`、`openaiCodex` 共用 `openai` 的圖片 helper）。
+`core` 只定義契約與共用行為，不認識任何具體供應商；供應商套件單向相依 `core`。共用的線路邏輯放在兩個輔助套件：`core/copilot/response`（Responses 輸入與工具轉換，供 `copilot`、`openai`、`openaiCodex` 與 `core/xai` 使用）與 `core/xai`（Responses 請求 body 與 SSE 解析，供 `grok`、`grokOauth` 使用）。供應商之間的直接引用只有兩處：`grokOauth` 共用 `grok.RequestImage`、`openaiCodex` 共用 `openai` 的圖片 helper。
 
 ## 模組：core
 
@@ -55,6 +57,7 @@ graph TB
         SSE[sse.go<br/>ScanSSE]
         Image[image.go<br/>ImageAgent / ImagePixelSize]
         Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
+        Session[session.go<br/>WithSessionID / SessionUUID]
     end
     Stream --> SSE
     Image --> Type
@@ -70,6 +73,7 @@ graph TB
 | `provider.go` | `temperature` 支援、Responses API 選路、共用 HTTP client |
 | `stream.go` / `sse.go` | SSE 掃描、兩種串流格式的事件正規化、錯誤包裝與讀取上限 |
 | `image.go` / `audio.go` | 多模態選用介面與尺寸／取樣率／WAV 封裝等純函式 |
+| `session.go` | 以 context 傳遞 session ID，雜湊為 UUID 後由供應商作為前綴快取鍵或 affinity header 送出 |
 
 ## 模組：router
 
@@ -113,8 +117,8 @@ graph TB
 |---|---|---|
 | OpenAI 相容 | `openai`、`deepseek`、`mistral`、`nvidia`、`openRouter`、`ollamaCloud`、`cloudflare`、`compat` | Chat Completions；OpenAI 新世代模型改走 Responses |
 | Anthropic | `claude` | Messages API，thinking 預算換算 |
-| Google | `gemini` | `:generateContent`，含 schema 淨化與 `cachedContents` |
-| xAI | `grok`、`grokOauth` | Responses API + 圖片端點 |
+| Google | `gemini` | `:generateContent`，工具以 `parametersJsonSchema` 傳送原始 JSON Schema，並使用 `cachedContents` |
+| xAI | `grok`、`grokOauth` | Responses API（共用 `core/xai` 的 body 組裝與 SSE 解析）+ 圖片端點 |
 | OAuth 代理 | `copilot`、`openaiCodex` | 廠商內部 Responses 端點，需 session 權杖 |
 
 ## 模組：串流

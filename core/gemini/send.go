@@ -180,53 +180,14 @@ func (a *Agent) convertToTools(tools []llmrouter.Tool) []map[string]any {
 	for i, tool := range tools {
 		var params map[string]any
 		json.Unmarshal(tool.Function.Parameters, &params)
-		sanitizeSchema(params)
 
 		newTools[i] = map[string]any{
-			"name":        tool.Function.Name,
-			"description": tool.Function.Description,
-			"parameters":  params,
+			"name":                 tool.Function.Name,
+			"description":          tool.Function.Description,
+			"parametersJsonSchema": params,
 		}
 	}
 	return newTools
-}
-
-var geminiUnsupportedKeys = map[string]struct{}{
-	"$schema":              {},
-	"$id":                  {},
-	"$ref":                 {},
-	"$defs":                {},
-	"$comment":             {},
-	"definitions":          {},
-	"additionalProperties": {},
-	"patternProperties":    {},
-}
-
-func sanitizeSchema(m map[string]any) {
-	for key := range geminiUnsupportedKeys {
-		delete(m, key)
-	}
-
-	if list, ok := m["enum"].([]any); ok {
-		for i, v := range list {
-			if _, ok := v.(string); !ok {
-				list[i] = fmt.Sprintf("%v", v)
-			}
-		}
-	}
-
-	for _, v := range m {
-		switch child := v.(type) {
-		case map[string]any:
-			sanitizeSchema(child)
-		case []any:
-			for _, item := range child {
-				if obj, ok := item.(map[string]any); ok {
-					sanitizeSchema(obj)
-				}
-			}
-		}
-	}
 }
 
 func (a *Agent) generateRequestBody(messages []Content, prompt string, newTools []map[string]any, cachedContent string, reasoning llmrouter.Reasoning) map[string]any {

@@ -1,7 +1,9 @@
+最後更新：2026-10-06
+
 > [!NOTE]
 > 此 README 由 [SKILL](https://github.com/agenvoy/skill-readme-generate) 生成，英文版請參閱 [這裡](../README.md)。
 
----
+***
 
 <p align="center">
 <strong>ONE AGENT INTERFACE FOR EVERY LLM PROVIDER</strong>
@@ -12,9 +14,10 @@
 <a href="https://github.com/pardnchiu/go-llm-router/releases"><img src="https://img.shields.io/github/v/tag/pardnchiu/go-llm-router?include_prereleases&style=for-the-badge" alt="Release"></a>
 <a href="LICENSE"><img src="https://img.shields.io/github/license/pardnchiu/go-llm-router?include_prereleases&style=for-the-badge" alt="License"></a>
 </p>
+
 ***
 
-> Go LLM 路由函式庫，具備統一 Agent 介面、字串路由工廠與跨供應商用量正規化
+> Go LLM 函式庫，具備多供應商 LLM 統一介面、provider@model 路由與串流用量正規化
 
 > 自 `Agenvoy` [2741d4a](https://github.com/agenvoy/Agenvoy/commit/2741d4a3be70c5bfac1bba9e1d5d54a65db15acd) 抽離為獨立套件
 >
@@ -63,9 +66,9 @@ graph TB
 Just [open an issue](https://github.com/pardnchiu/go-llm-router/issues/new) to share an idea.
 
 <a href="https://github.com/pardnchiu/go-llm-router/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-09-20" alt="go-llm-router contributors" />
+  <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-10-06" alt="go-llm-router contributors" />
 </a>
 
----
+***
 
 ©️ 2026 [邱敬幃 Pardn Chiu](https://www.linkedin.com/in/pardnchiu)
