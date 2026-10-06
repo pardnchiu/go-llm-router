@@ -1,5 +1,7 @@
 # go-llm-router - 技術文件
 
+最後更新：2026-10-06
+
 > 返回 [README](./README.zh.md)
 
 ## 目錄
@@ -264,8 +266,29 @@ remaining, err := openrouter.Usage(ctx, llmrouter.Config{APIKey: key})
 if err != nil {
 	return err
 }
-fmt.Printf("credits left: %.2f\n", remaining)
+if remaining.Balance != nil {
+	fmt.Printf("credits left: %.2f\n", *remaining.Balance)
+}
 ```
+
+各供應商只填入自家回報的欄位，未提供的欄位維持 `nil`。
+
+### Session 前綴快取
+
+```go
+ctx = llmrouter.WithSessionID(ctx, conversationID)
+
+out, _, err := agent.Send(ctx, messages, nil, llmrouter.ReasoningDefault, llmrouter.ModeDefault)
+```
+
+ID 經 `SessionUUID` 雜湊為固定 UUID，原始對話 ID 不會送出程序；空白 ID 時 `ctx` 原樣回傳。
+
+| 供應商 | Session UUID 送往 |
+|---|---|
+| `openai` | `prompt_cache_key`（Chat Completions 與 Responses） |
+| `codex` | `session_id` header + `prompt_cache_key` |
+| `grok` / `grok-oauth` | `prompt_cache_key` |
+| `cloudflare` | `x-session-affinity` header |
 
 ### 自架或第三方相容端點
 
@@ -487,14 +510,25 @@ type TTSOptions struct{ Voice, Format string } // wav（預設）/ mp3 / opus / 
 
 ### 用量查詢
 
-| 套件 | 簽名 | 回傳語意 |
+```go
+type UsageRemaining struct {
+	FiveHour *float64 // 5 小時視窗剩餘百分比
+	Week     *float64 // 週視窗剩餘百分比
+	Balance  *float64 // 帳戶餘額或剩餘點數
+	Total    *float64 // 整體配額剩餘百分比
+}
+```
+
+各套件皆提供 `Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaining, error)`：
+
+| 套件 | 憑證 | 填入欄位 |
 |---|---|---|
-| `core/openRouter` | `Usage(ctx, llmrouter.Config) (float64, error)` | 剩餘點數（`total_credits - total_usage`） |
-| `core/deepseek` | 同上 | 帳戶餘額 |
-| `core/ollamaCloud` | 同上 | 月配額剩餘百分比 |
-| `core/copilot` | 同上（需 `Token`） | Chat 或 premium interactions 的剩餘百分比 |
-| `core/openaiCodex` | 同上（需 `APIKey`、`AccountID`） | 主／次視窗中較緊的剩餘百分比 |
-| `core/grokOauth` | 同上 | 剩餘點數百分比 |
+| `core/openRouter` | `APIKey` | `Balance`（`total_credits - total_usage`） |
+| `core/deepseek` | `APIKey` | `Balance` |
+| `core/ollamaCloud` | `APIKey` | `Total`（月配額） |
+| `core/copilot` | `Token` | `Total`（Chat 或 premium interactions） |
+| `core/openaiCodex` | `APIKey`，`AccountID` 選填 | `FiveHour`、`Week` |
+| `core/grokOauth` | `APIKey` | `Total`（點數） |
 
 ### 其他
 
@@ -503,6 +537,8 @@ type TTSOptions struct{ Voice, Format string } // wav（預設）/ mp3 / opus / 
 | `NewHTTPClient` | `func() *http.Client` | 10 分鐘 timeout；`codex` 與 `grok-oauth` 另外自建 15 秒 response header timeout 的 client |
 | `SupportTemperature` | `func(providerName, model string) bool` | Claude、`gpt-5` 系列、`deepseek-reasoner`、Gemini preview 皆不接受 `temperature` |
 | `ResponsesAPI` | `func(providerName, model string) bool` | 決定 OpenAI / Copilot 走 Responses 還是 Chat Completions |
+| `WithSessionID` | `func(ctx context.Context, id string) context.Context` | 掛上 session ID 供前綴快取使用；空白 ID 忽略 |
+| `SessionID` / `SessionUUID` | `func(ctx context.Context) string` | 取原始 ID，或其 SHA-256 衍生的 UUID；未設定時回空字串 |
 | `TruncateFrame` | `func(data string) string` | 錯誤訊息中的 SSE frame 截至 512 bytes |
 | `summary.VoiceReply` | `func(ctx, text string) (string, error)` | 超過 320 字元時以 Gemini 壓縮為可朗讀版本，金鑰取自 keychain 的 `GEMINI_API_KEY` |
 

@@ -1,5 +1,7 @@
 # go-llm-router - Documentation
 
+Last updated: 2026-10-06
+
 > Back to [README](../README.md)
 
 ## Table of Contents
@@ -264,8 +266,29 @@ remaining, err := openrouter.Usage(ctx, llmrouter.Config{APIKey: key})
 if err != nil {
 	return err
 }
-fmt.Printf("credits left: %.2f\n", remaining)
+if remaining.Balance != nil {
+	fmt.Printf("credits left: %.2f\n", *remaining.Balance)
+}
 ```
+
+Each provider fills only the fields it reports; unset fields stay `nil`.
+
+### Session-scoped prompt caching
+
+```go
+ctx = llmrouter.WithSessionID(ctx, conversationID)
+
+out, _, err := agent.Send(ctx, messages, nil, llmrouter.ReasoningDefault, llmrouter.ModeDefault)
+```
+
+The ID is hashed into a stable UUID by `SessionUUID`, so raw conversation IDs never leave the process. A blank ID leaves `ctx` unchanged.
+
+| Provider | Where the session UUID goes |
+|---|---|
+| `openai` | `prompt_cache_key` (Chat Completions and Responses) |
+| `codex` | `session_id` header + `prompt_cache_key` |
+| `grok` / `grok-oauth` | `prompt_cache_key` |
+| `cloudflare` | `x-session-affinity` header |
 
 ### Self-hosted and third-party compatible endpoints
 
@@ -487,14 +510,25 @@ type TTSOptions struct{ Voice, Format string } // wav (default) / mp3 / opus / a
 
 ### Usage queries
 
-| Package | Signature | Return semantics |
+```go
+type UsageRemaining struct {
+	FiveHour *float64 // percentage left in the 5-hour window
+	Week     *float64 // percentage left in the weekly window
+	Balance  *float64 // account balance or credits left
+	Total    *float64 // percentage left of the overall quota
+}
+```
+
+Every package exposes `Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaining, error)`:
+
+| Package | Credentials | Fields set |
 |---|---|---|
-| `core/openRouter` | `Usage(ctx, llmrouter.Config) (float64, error)` | Remaining credits (`total_credits - total_usage`) |
-| `core/deepseek` | same | Account balance |
-| `core/ollamaCloud` | same | Remaining monthly quota as a percentage |
-| `core/copilot` | same (needs `Token`) | Remaining percentage of chat or premium interactions |
-| `core/openaiCodex` | same (needs `APIKey`, `AccountID`) | Remaining percentage of the tighter rate-limit window |
-| `core/grokOauth` | same | Remaining credit percentage |
+| `core/openRouter` | `APIKey` | `Balance` (`total_credits - total_usage`) |
+| `core/deepseek` | `APIKey` | `Balance` |
+| `core/ollamaCloud` | `APIKey` | `Total` (monthly quota) |
+| `core/copilot` | `Token` | `Total` (chat or premium interactions) |
+| `core/openaiCodex` | `APIKey`, optional `AccountID` | `FiveHour`, `Week` |
+| `core/grokOauth` | `APIKey` | `Total` (credits) |
 
 ### Miscellaneous
 
@@ -503,6 +537,8 @@ type TTSOptions struct{ Voice, Format string } // wav (default) / mp3 / opus / a
 | `NewHTTPClient` | `func() *http.Client` | 10-minute timeout; `codex` and `grok-oauth` build their own client with a 15-second response-header timeout |
 | `SupportTemperature` | `func(providerName, model string) bool` | Claude, the `gpt-5` family, `deepseek-reasoner`, and Gemini previews reject `temperature` |
 | `ResponsesAPI` | `func(providerName, model string) bool` | Chooses Responses over Chat Completions for OpenAI and Copilot |
+| `WithSessionID` | `func(ctx context.Context, id string) context.Context` | Attaches a session ID for prompt caching; blank IDs are ignored |
+| `SessionID` / `SessionUUID` | `func(ctx context.Context) string` | Raw ID, or its SHA-256-derived UUID; empty when unset |
 | `TruncateFrame` | `func(data string) string` | Caps an SSE frame in error messages at 512 bytes |
 | `summary.VoiceReply` | `func(ctx, text string) (string, error)` | Compresses text over 320 characters into a speakable reply via Gemini, using `GEMINI_API_KEY` from the keychain |
 
