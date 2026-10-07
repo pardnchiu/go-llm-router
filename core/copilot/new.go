@@ -23,10 +23,6 @@ type Agent struct {
 	endpointCache []string
 }
 
-const (
-	Prefix = "copilot@"
-)
-
 func New(config llmrouter.Config) (*Agent, error) {
 	token, ok := config.Token.(*llmrouter.CopilotToken)
 	if !ok || token == nil {
@@ -43,7 +39,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return Prefix + a.model
+	return llmrouter.PROVIDER_COPILOT + "@" + a.model
 }
 
 func (a *Agent) authHeader(ctx context.Context) (string, error) {

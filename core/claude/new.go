@@ -14,10 +14,6 @@ type Agent struct {
 	apiKey     string
 }
 
-const (
-	Prefix = "claude@"
-)
-
 func New(config llmrouter.Config) (*Agent, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("claude.New: APIKey is required")
@@ -31,7 +27,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return Prefix + a.model
+	return llmrouter.PROVIDER_CLAUDE + "@" + a.model
 }
 
 func (a *Agent) maxOutputTokens() int {

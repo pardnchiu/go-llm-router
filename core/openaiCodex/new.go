@@ -10,8 +10,6 @@ import (
 	oauthCodex "github.com/pardnchiu/go-llm-router/core/oauth/codex"
 )
 
-const Prefix = "codex@"
-
 func newHTTPClient() *http.Client {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -46,7 +44,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return Prefix + a.model
+	return llmrouter.PROVIDER_CODEX + "@" + a.model
 }
 
 func (a *Agent) authHeader(ctx context.Context) (string, error) {

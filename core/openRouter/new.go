@@ -13,8 +13,6 @@ type Agent struct {
 	apiKey     string
 }
 
-const Prefix = "openrouter@"
-
 func New(config llmrouter.Config) (*Agent, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("openrouter.New: APIKey is required")
@@ -28,5 +26,5 @@ func New(config llmrouter.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return Prefix + a.model
+	return llmrouter.PROVIDER_OPENROUTER + "@" + a.model
 }

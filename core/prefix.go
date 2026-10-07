@@ -1,0 +1,26 @@
+package llmrouter
+
+const (
+	PROVIDER_CLAUDE       = "claude"
+	PROVIDER_CLAUDE_CODE  = "claude-code"
+	PROVIDER_CLOUDFLARE   = "cloudflare"
+	PROVIDER_CODEX        = "codex"
+	PROVIDER_COMPAT       = "compat"
+	PROVIDER_COPILOT      = "copilot"
+	PROVIDER_DEEPSEEK     = "deepseek"
+	PROVIDER_GEMINI       = "gemini"
+	PROVIDER_GROK         = "grok"
+	PROVIDER_GROK_OAUTH   = "grok-oauth"
+	PROVIDER_MISTRAL      = "mistral"
+	PROVIDER_NVIDIA       = "nvidia"
+	PROVIDER_OLLAMA_CLOUD = "ollama-cloud"
+	PROVIDER_OPENAI       = "openai"
+	PROVIDER_OPENROUTER   = "openrouter"
+)
+
+func Providers() []string {
+	return []string{
+		PROVIDER_CLAUDE, PROVIDER_OPENAI, PROVIDER_GEMINI, PROVIDER_GROK, PROVIDER_DEEPSEEK, PROVIDER_MISTRAL, PROVIDER_NVIDIA,
+		PROVIDER_OPENROUTER, PROVIDER_CLOUDFLARE, PROVIDER_COPILOT, PROVIDER_CODEX, PROVIDER_GROK_OAUTH, PROVIDER_OLLAMA_CLOUD, PROVIDER_CLAUDE_CODE,
+	}
+}

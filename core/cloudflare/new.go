@@ -15,10 +15,6 @@ type Agent struct {
 	gatewayID  string
 }
 
-const (
-	Prefix = "cloudflare@"
-)
-
 func New(config llmrouter.Config) (*Agent, error) {
 	if config.APIKey == "" {
 		return nil, fmt.Errorf("cloudflare.New: APIKey is required")
@@ -42,5 +38,5 @@ func New(config llmrouter.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return Prefix + a.model
+	return llmrouter.PROVIDER_CLOUDFLARE + "@" + a.model
 }
