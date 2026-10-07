@@ -51,6 +51,10 @@ type Config struct {
 	BaseURL string
 	Prefix  string
 
+	// * claude code
+	EnableClaude bool
+	StateDir     string
+
 	// * cloudflare
 	AccountID string
 	GatewayID string

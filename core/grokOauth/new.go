@@ -10,8 +10,6 @@ import (
 	oauthGrok "github.com/pardnchiu/go-llm-router/core/oauth/grok"
 )
 
-const Prefix = "grok-oauth@"
-
 func newHTTPClient() *http.Client {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -46,7 +44,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 }
 
 func (a *Agent) Name() string {
-	return Prefix + a.model
+	return llmrouter.PROVIDER_GROK_OAUTH + "@" + a.model
 }
 
 func (a *Agent) authHeader(ctx context.Context) (string, error) {

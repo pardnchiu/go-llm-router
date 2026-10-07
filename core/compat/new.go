@@ -19,7 +19,6 @@ type Agent struct {
 
 const (
 	defaultBaseURL = "http://localhost:11434/v1"
-	defaultPrefix  = "compat@"
 )
 
 func New(config llmrouter.Config) (*Agent, error) {
@@ -35,7 +34,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 
 	prefix := config.Prefix
 	if prefix == "" {
-		prefix = defaultPrefix
+		prefix = llmrouter.PROVIDER_COMPAT + "@"
 	}
 
 	return &Agent{
