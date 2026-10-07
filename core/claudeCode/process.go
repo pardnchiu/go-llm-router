@@ -97,10 +97,66 @@ type resultLine struct {
 }
 
 var (
-	toolCallPattern  = regexp.MustCompile(`(?s)<(?:tool_call|(?:[a-z]+:)?invoke) name="([^"]+)">(.*?)</(?:tool_call|(?:[a-z]+:)?invoke)>`)
-	parameterPattern = regexp.MustCompile(`(?s)<(?:[a-z]+:)?parameter name="([^"]+)">(.*?)</(?:[a-z]+:)?parameter>`)
-	emptyTagsPattern = regexp.MustCompile(`^(?:\s*<[A-Za-z_:]+>\s*</[A-Za-z_:]+>\s*)+$`)
+	toolCallOpenPattern  = regexp.MustCompile(`<(?:tool_call|(?:[a-z]+:)?invoke) name="([^"]+)">`)
+	toolCallClosePattern = regexp.MustCompile(`</(?:tool_call|(?:[a-z]+:)?invoke)>`)
+	parameterPattern     = regexp.MustCompile(`(?s)<(?:[a-z]+:)?parameter name="([^"]+)">(.*?)</(?:[a-z]+:)?parameter>`)
+	emptyTagsPattern     = regexp.MustCompile(`^(?:\s*<[A-Za-z_:]+>\s*</[A-Za-z_:]+>\s*)+$`)
 )
+
+type toolCallBlock struct {
+	name string
+	body string
+}
+
+func splitToolCalls(text string) (string, []toolCallBlock) {
+	var rest strings.Builder
+	var list []toolCallBlock
+	cursor := 0
+	for cursor < len(text) {
+		open := toolCallOpenPattern.FindStringSubmatchIndex(text[cursor:])
+		if open == nil {
+			break
+		}
+		start := cursor + open[0]
+		bodyStart := cursor + open[1]
+		name := text[cursor+open[2] : cursor+open[3]]
+
+		body, end, ok := jsonToolCallBody(text, bodyStart)
+		if !ok {
+			closing := toolCallClosePattern.FindStringIndex(text[bodyStart:])
+			if closing == nil {
+				break
+			}
+			body = text[bodyStart : bodyStart+closing[0]]
+			end = bodyStart + closing[1]
+		}
+		rest.WriteString(text[cursor:start])
+		list = append(list, toolCallBlock{name: name, body: body})
+		cursor = end
+	}
+	rest.WriteString(text[cursor:])
+	return rest.String(), list
+}
+
+func jsonToolCallBody(text string, bodyStart int) (string, int, bool) {
+	trimmed := strings.TrimLeft(text[bodyStart:], " \t\r\n")
+	if !strings.HasPrefix(trimmed, "{") {
+		return "", 0, false
+	}
+	jsonStart := len(text) - len(trimmed)
+	decoder := json.NewDecoder(strings.NewReader(trimmed))
+	var raw json.RawMessage
+	if decoder.Decode(&raw) != nil {
+		return "", 0, false
+	}
+	jsonEnd := jsonStart + int(decoder.InputOffset())
+	after := strings.TrimLeft(text[jsonEnd:], " \t\r\n")
+	closing := toolCallClosePattern.FindStringIndex(after)
+	if closing == nil || closing[0] != 0 {
+		return "", 0, false
+	}
+	return text[jsonStart:jsonEnd], len(text) - len(after) + closing[1], true
+}
 
 func invokeArguments(body string) string {
 	dic := map[string]any{}
@@ -356,9 +412,10 @@ func (p *process) readResult() (*resultLine, error) {
 }
 
 func buildOutput(line *resultLine) (*llmrouter.Output, int, error) {
+	text, blocks := splitToolCalls(line.Result)
 	message := llmrouter.Message{
 		Role:    "assistant",
-		Content: strings.TrimSpace(toolCallPattern.ReplaceAllString(line.Result, "")),
+		Content: strings.TrimSpace(text),
 	}
 	placeholder := emptyTagsPattern.MatchString(message.Content.(string))
 	if placeholder {
@@ -374,15 +431,15 @@ func buildOutput(line *resultLine) (*llmrouter.Output, int, error) {
 			Function: llmrouter.ToolCallFunction{Name: name, Arguments: args},
 		})
 	}
-	for _, m := range toolCallPattern.FindAllStringSubmatch(line.Result, -1) {
-		args := strings.TrimSpace(m[2])
+	for _, block := range blocks {
+		args := strings.TrimSpace(block.body)
 		switch {
 		case parameterPattern.MatchString(args):
 			args = invokeArguments(args)
 		case args == "":
 			args = "{}"
 		}
-		addCall(m[1], args)
+		addCall(block.name, args)
 	}
 
 	finish := "stop"
