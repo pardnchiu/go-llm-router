@@ -3,7 +3,6 @@ package claudeCode
 import (
 	"bufio"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -22,11 +22,13 @@ import (
 	go_pkg_utils "github.com/pardnchiu/go-pkg/utils"
 )
 
-//go:embed prompts/tool_prompt.md
-var toolPrompt string
-
-//go:embed prompts/plain_prompt.md
-var plainPrompt string
+const (
+	basePrompt  = "You are an agent. Follow the <system_prompt> in the first message as your system prompt."
+	plainPrompt = basePrompt + " Reply in plain text."
+	toolPrompt  = basePrompt + `
+<tools> lists tool names, with the full JSON Schema only for find_tools. Before calling any other tool, fetch its schema with <tool_call name="find_tools">{"query": "select:NAME[,NAME]"}</tool_call>, or by keywords if no name fits; once fetched, call it directly. A new <tools> block replaces the list. Later turns arrive as <user>, <assistant>, <system> and <tool_result> blocks.
+Call a tool with one block per call: <tool_call name="TOOL_NAME">{"arg": "value"}</tool_call>, the body a single JSON object of its parameters. Put independent calls in one reply, then stop and wait; results return as <tool_result> blocks in the next message. Text outside <tool_call> blocks is shown to the user; the final answer has none.`
+)
 
 const (
 	idleTimeout     = 15 * time.Minute
@@ -108,18 +110,52 @@ type toolCallBlock struct {
 	body string
 }
 
+func codeFenceRanges(text string) [][2]int {
+	var list [][2]int
+	fenceStart, fenceChar, fenceLen := -1, byte(0), 0
+	for offset := 0; offset < len(text); {
+		end := strings.IndexByte(text[offset:], '\n')
+		next := len(text)
+		if end >= 0 {
+			next = offset + end + 1
+		}
+		line := strings.TrimLeft(text[offset:next], " ")
+		if len(text[offset:next])-len(line) <= 3 && line != "" && (line[0] == '`' || line[0] == '~') {
+			n := len(line) - len(strings.TrimLeft(line, line[:1]))
+			switch {
+			case fenceStart < 0 && n >= 3:
+				fenceStart, fenceChar, fenceLen = offset, line[0], n
+			case fenceStart >= 0 && line[0] == fenceChar && n >= fenceLen && strings.TrimSpace(line[n:]) == "":
+				list = append(list, [2]int{fenceStart, next})
+				fenceStart = -1
+			}
+		}
+		offset = next
+	}
+	if fenceStart >= 0 {
+		list = append(list, [2]int{fenceStart, len(text)})
+	}
+	return list
+}
+
 func splitToolCalls(text string) (string, []toolCallBlock) {
 	var rest strings.Builder
 	var list []toolCallBlock
-	cursor := 0
-	for cursor < len(text) {
-		open := toolCallOpenPattern.FindStringSubmatchIndex(text[cursor:])
+	fences := codeFenceRanges(text)
+	cursor, search := 0, 0
+	for search < len(text) {
+		open := toolCallOpenPattern.FindStringSubmatchIndex(text[search:])
 		if open == nil {
 			break
 		}
-		start := cursor + open[0]
-		bodyStart := cursor + open[1]
-		name := text[cursor+open[2] : cursor+open[3]]
+		start := search + open[0]
+		bodyStart := search + open[1]
+		name := text[search+open[2] : search+open[3]]
+
+		if i := slices.IndexFunc(fences, func(r [2]int) bool { return start >= r[0] && start < r[1] }); i >= 0 {
+			search = fences[i][1]
+			continue
+		}
 
 		body, end, ok := jsonToolCallBody(text, bodyStart)
 		if !ok {
@@ -132,7 +168,7 @@ func splitToolCalls(text string) (string, []toolCallBlock) {
 		}
 		rest.WriteString(text[cursor:start])
 		list = append(list, toolCallBlock{name: name, body: body})
-		cursor = end
+		cursor, search = end, end
 	}
 	rest.WriteString(text[cursor:])
 	return rest.String(), list
@@ -299,9 +335,9 @@ func (p *process) start(model, effort string, withTools bool, sessionID string, 
 		args = append(args, "--session-id", sessionID)
 	}
 	if withTools {
-		args = append(args, "--system-prompt", strings.TrimSpace(toolPrompt))
+		args = append(args, "--system-prompt", toolPrompt)
 	} else {
-		args = append(args, "--system-prompt", strings.TrimSpace(plainPrompt))
+		args = append(args, "--system-prompt", plainPrompt)
 	}
 
 	cmd := exec.Command("claude", args...)
