@@ -273,6 +273,7 @@ func TruncateFrame(data string) string {
 type responsesState struct {
 	sawToolCall    bool
 	sawReasonDelta bool
+	indexArgs      map[int]bool
 }
 
 func StreamResponses(resp *http.Response, label string) <-chan StreamEvent {
@@ -282,7 +283,7 @@ func StreamResponses(resp *http.Response, label string) <-chan StreamEvent {
 		defer resp.Body.Close()
 		defer close(events)
 
-		state := responsesState{}
+		state := responsesState{indexArgs: map[int]bool{}}
 		reader := bufio.NewReader(io.LimitReader(resp.Body, StreamBodyLimit))
 		readErr := ScanSSE(reader, func(_, data string) bool {
 			if strings.TrimSpace(data) == "[DONE]" {
@@ -316,6 +317,9 @@ func handleResponsesEvent(data, label string, state *responsesState, events chan
 	case "response.output_item.added":
 		if ev.Item != nil && ev.Item.Type == "function_call" {
 			state.sawToolCall = true
+			if ev.Item.Arguments != "" {
+				state.indexArgs[ev.OutputIndex] = true
+			}
 			events <- StreamEvent{
 				Type: StreamEventToolCall,
 				ToolCall: &ToolCallDelta{
@@ -328,6 +332,9 @@ func handleResponsesEvent(data, label string, state *responsesState, events chan
 		}
 
 	case "response.function_call_arguments.delta":
+		if ev.Delta != "" {
+			state.indexArgs[ev.OutputIndex] = true
+		}
 		events <- StreamEvent{
 			Type: StreamEventToolCall,
 			ToolCall: &ToolCallDelta{
@@ -349,12 +356,22 @@ func handleResponsesEvent(data, label string, state *responsesState, events chan
 		}
 		if ev.Item.Type == "function_call" && !state.sawToolCall {
 			state.sawToolCall = true
+			state.indexArgs[ev.OutputIndex] = true
 			events <- StreamEvent{
 				Type: StreamEventToolCall,
 				ToolCall: &ToolCallDelta{
 					Index:     ev.OutputIndex,
 					ID:        ev.Item.CallID,
 					Name:      ev.Item.Name,
+					Arguments: ev.Item.Arguments,
+				},
+			}
+		} else if ev.Item.Type == "function_call" && !state.indexArgs[ev.OutputIndex] && ev.Item.Arguments != "" {
+			state.indexArgs[ev.OutputIndex] = true
+			events <- StreamEvent{
+				Type: StreamEventToolCall,
+				ToolCall: &ToolCallDelta{
+					Index:     ev.OutputIndex,
 					Arguments: ev.Item.Arguments,
 				},
 			}
