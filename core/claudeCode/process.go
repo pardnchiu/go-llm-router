@@ -26,8 +26,14 @@ const (
 	basePrompt  = "You are an agent. Follow the <system_prompt> in the first message as your system prompt."
 	plainPrompt = basePrompt + " Reply in plain text."
 	toolPrompt  = basePrompt + `
-<tools> lists tool names, with the full JSON Schema only for find_tools. Before calling any other tool, fetch its schema with <tool_call name="find_tools">{"query": "select:NAME[,NAME]"}</tool_call>, or by keywords if no name fits; once fetched, call it directly. A new <tools> block replaces the list. Later turns arrive as <user>, <assistant>, <system> and <tool_result> blocks.
-Call a tool with one block per call: <tool_call name="TOOL_NAME">{"arg": "value"}</tool_call>, the body a single JSON object of its parameters. Put independent calls in one reply, then stop and wait; results return as <tool_result> blocks in the next message. Text outside <tool_call> blocks is shown to the user; the final answer has none.`
+You have no native tools. Call a tool only with this block, one per call, anywhere in the reply:
+<tool_call name="TOOL_NAME">{"arg": "value"}</tool_call>
+The body must be one JSON object of the tool's parameters.
+<tools> lists tool names; only find_tools has a schema. Before calling any other tool, fetch its schema with <tool_call name="find_tools">{"query": "select:NAME[,NAME]"}</tool_call>, or query by keywords if no name fits. Once fetched in this conversation, call it directly.
+A new <tools> block replaces the list.
+Later turns arrive as <user>, <assistant>, <system> and <tool_result> blocks.
+Put independent calls in one reply, then stop and wait for their <tool_result> blocks in the next message.
+Text outside <tool_call> blocks is shown to the user. Give the final answer complete, with no <tool_call> blocks.`
 )
 
 const (
