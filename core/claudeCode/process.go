@@ -105,9 +105,26 @@ type resultLine struct {
 }
 
 var (
-	toolCallOpenPattern  = regexp.MustCompile(`<(?:tool_call|(?:[a-z]+:)?invoke) name="([^"]+)">`)
-	toolCallClosePattern = regexp.MustCompile(`</(?:tool_call|(?:[a-z]+:)?invoke)>`)
-	parameterPattern     = regexp.MustCompile(`(?s)<(?:[a-z]+:)?parameter name="([^"]+)">(.*?)</(?:[a-z]+:)?parameter>`)
+	// * sonnet/opus origin
+	// * 1. <tool_call name=[tool name]>[tool arguments]</tool_call>
+	// * 2. <invoke name=[tool name]>
+	// *      <parameter name=[parameter name]>[parameter value]</parameter>
+	// *    </invoke>
+	// * no tool call
+	// * <tool_call name="x">{}</tool_call> => json parse is no key or name is x then skip
+	// * haiku discovered 2026/10/09
+	// * 1. <invoke_tool name=[tool name]>
+	// *      <parameter name=[parameter name]>[parameter value]</parameter>
+	// *    </invoke_tool>
+	// * 2. <invoke_tool>
+	// *      <parameter name="name">[tool name]</parameter>
+	// *      <parameter name="arguments">[tool arguments]</parameter>
+	// *    </invoke_tool>
+	// * not on rule discovered 2026/10/09
+	// * </parameter_name> for close not with </parameter>
+	toolCallOpenPattern  = regexp.MustCompile(`<(?:(?:tool_call|(?:[a-z]+:)?invoke(?:_tool)?) name="([^"]+)"|invoke_tool)>`)
+	toolCallClosePattern = regexp.MustCompile(`</(?:tool_call|(?:[a-z]+:)?invoke(?:_tool)?)>`)
+	parameterPattern     = regexp.MustCompile(`(?s)<(?:[a-z]+:)?parameter name="([^"]+)">(.*?)</(?:[a-z]+:)?parameter(?:_name)?>`)
 	emptyTagsPattern     = regexp.MustCompile(`^(?:\s*<[A-Za-z_:]+>\s*</[A-Za-z_:]+>\s*)+$`)
 )
 
@@ -144,10 +161,53 @@ func codeFenceRanges(text string) [][2]int {
 	return list
 }
 
+func inlineCodeRanges(text string, fences [][2]int) [][2]int {
+	var list [][2]int
+	for offset := 0; offset < len(text); {
+		if i := slices.IndexFunc(fences, func(r [2]int) bool { return offset >= r[0] && offset < r[1] }); i >= 0 {
+			offset = fences[i][1]
+			continue
+		}
+		if text[offset] != '`' {
+			offset++
+			continue
+		}
+		n := len(text[offset:]) - len(strings.TrimLeft(text[offset:], "`"))
+		limit := len(text)
+		if i := strings.Index(text[offset:], "\n\n"); i >= 0 {
+			limit = offset + i
+		}
+		if i := slices.IndexFunc(fences, func(r [2]int) bool { return r[0] > offset }); i >= 0 {
+			limit = min(limit, fences[i][0])
+		}
+		closeEnd := -1
+		for cursor := offset + n; cursor < limit; {
+			if text[cursor] != '`' {
+				cursor++
+				continue
+			}
+			m := len(text[cursor:limit]) - len(strings.TrimLeft(text[cursor:limit], "`"))
+			if m == n {
+				closeEnd = cursor + m
+				break
+			}
+			cursor += m
+		}
+		if closeEnd < 0 {
+			offset += n
+			continue
+		}
+		list = append(list, [2]int{offset, closeEnd})
+		offset = closeEnd
+	}
+	return list
+}
+
 func splitToolCalls(text string) (string, []toolCallBlock) {
 	var rest strings.Builder
 	var list []toolCallBlock
 	fences := codeFenceRanges(text)
+	codeRanges := append(fences, inlineCodeRanges(text, fences)...)
 	cursor, search := 0, 0
 	for search < len(text) {
 		open := toolCallOpenPattern.FindStringSubmatchIndex(text[search:])
@@ -156,10 +216,13 @@ func splitToolCalls(text string) (string, []toolCallBlock) {
 		}
 		start := search + open[0]
 		bodyStart := search + open[1]
-		name := text[search+open[2] : search+open[3]]
+		name := ""
+		if open[2] >= 0 {
+			name = text[search+open[2] : search+open[3]]
+		}
 
-		if i := slices.IndexFunc(fences, func(r [2]int) bool { return start >= r[0] && start < r[1] }); i >= 0 {
-			search = fences[i][1]
+		if i := slices.IndexFunc(codeRanges, func(r [2]int) bool { return start >= r[0] && start < r[1] }); i >= 0 {
+			search = codeRanges[i][1]
 			continue
 		}
 
@@ -172,12 +235,29 @@ func splitToolCalls(text string) (string, []toolCallBlock) {
 			body = text[bodyStart : bodyStart+closing[0]]
 			end = bodyStart + closing[1]
 		}
-		rest.WriteString(text[cursor:start])
+		writeText(&rest, text, cursor, start, codeRanges)
 		list = append(list, toolCallBlock{name: name, body: body})
 		cursor, search = end, end
 	}
-	rest.WriteString(text[cursor:])
+	writeText(&rest, text, cursor, len(text), codeRanges)
 	return rest.String(), list
+}
+
+func writeText(rest *strings.Builder, text string, from, to int, codeRanges [][2]int) {
+	for from < to {
+		loc := toolCallClosePattern.FindStringIndex(text[from:to])
+		if loc == nil {
+			break
+		}
+		at := from + loc[0]
+		if slices.ContainsFunc(codeRanges, func(r [2]int) bool { return at >= r[0] && at < r[1] }) {
+			rest.WriteString(text[from : from+loc[1]])
+		} else {
+			rest.WriteString(text[from:at])
+		}
+		from += loc[1]
+	}
+	rest.WriteString(text[from:to])
 }
 
 func jsonToolCallBody(text string, bodyStart int) (string, int, bool) {
@@ -198,6 +278,19 @@ func jsonToolCallBody(text string, bodyStart int) (string, int, bool) {
 		return "", 0, false
 	}
 	return text[jsonStart:jsonEnd], len(text) - len(after) + closing[1], true
+}
+
+func wrappedCall(body string) (string, string) {
+	name, args := "", ""
+	for _, m := range parameterPattern.FindAllStringSubmatch(body, -1) {
+		switch m[1] {
+		case "name":
+			name = strings.TrimSpace(m[2])
+		case "arguments":
+			args = strings.TrimSpace(m[2])
+		}
+	}
+	return name, args
 }
 
 func invokeArguments(body string) string {
@@ -474,14 +567,21 @@ func buildOutput(line *resultLine) (*llmrouter.Output, int, error) {
 		})
 	}
 	for _, block := range blocks {
-		args := strings.TrimSpace(block.body)
+		name, args := block.name, strings.TrimSpace(block.body)
+		if name == "" {
+			name, args = wrappedCall(args)
+		}
 		switch {
 		case parameterPattern.MatchString(args):
 			args = invokeArguments(args)
 		case args == "":
 			args = "{}"
 		}
-		addCall(block.name, args)
+		var dic map[string]any
+		if strings.TrimSpace(name) == "x" && json.Unmarshal([]byte(args), &dic) == nil && len(dic) == 0 {
+			continue
+		}
+		addCall(name, args)
 	}
 
 	finish := "stop"
