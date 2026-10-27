@@ -1,6 +1,6 @@
 # go-llm-router - Architecture
 
-Last updated: 2026-10-06
+Last updated: 2026-10-27
 
 > Back to [README](../README.md)
 
@@ -26,10 +26,13 @@ graph TB
     Registry --> KeyAgents[Key-based agents]
     Registry --> OAuthAgents[OAuth agents]
     Registry --> CompatAgent[compat agent]
+    Registry --> CLIAgent[claude-code agent]
 
     KeyAgents --> Core[core contracts]
     OAuthAgents --> Core
     CompatAgent --> Core
+    CLIAgent --> Core
+    CLIAgent --> ClaudeCLI[local claude CLI]
 
     OAuthAgents --> OAuth[core/oauth]
     OAuth --> Keychain[go-pkg keychain]
@@ -55,11 +58,14 @@ graph TB
         Provider[provider.go<br/>SupportTemperature / ResponsesAPI]
         Stream[stream.go<br/>OpenStream / StreamChat / StreamResponses]
         SSE[sse.go<br/>ScanSSE]
+        Idle[idle.go<br/>WatchIdle / TouchIdle / DecodeFrame]
+        Prefix[prefix.go<br/>PROVIDER_* / Providers]
         Image[image.go<br/>ImageAgent / ImagePixelSize]
         Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
         Session[session.go<br/>WithSessionID / SessionUUID]
     end
     Stream --> SSE
+    Stream --> Idle
     Image --> Type
     Audio --> Type
     Reasoning --> Type
@@ -71,9 +77,11 @@ graph TB
 | `reasoning.go` | Six reasoning levels, alias parsing, `ClampReasoning`, marker-based model classification and `ModelFilter` |
 | `mode.go` | `default` / `fast` modes and per-vendor fast-tier support |
 | `provider.go` | `temperature` support, Responses API routing, the shared HTTP client |
-| `stream.go` / `sse.go` | SSE scanning, event normalization for both stream formats, error wrapping and read caps |
+| `stream.go` / `sse.go` | SSE scanning, event normalization for both stream formats, error wrapping |
+| `idle.go` | Stream watchdog: idle and contentless probes, degenerate-repetition detection, tolerance for isolated undecodable frames |
+| `prefix.go` | `PROVIDER_*` prefix constants and `Providers()` |
 | `image.go` / `audio.go` | Optional multimodal interfaces plus pure helpers for sizing, sample rate, and WAV framing |
-| `session.go` | Context-scoped session ID, hashed into a UUID that providers send as a prompt-cache key or affinity header |
+| `session.go` | Context-scoped session ID, hashed into a UUID that providers send as a prompt-cache key or affinity header, plus a requested cache TTL |
 
 ## Module: router
 
@@ -99,7 +107,7 @@ Every provider package uses the same file layout; only the conversion logic diff
 ```mermaid
 graph TB
     subgraph provider
-        New[new.go<br/>Agent struct / Prefix / Name]
+        New[new.go<br/>Agent struct / Name]
         Send[send.go<br/>Message conversion / non-stream request]
         StreamFile[stream.go<br/>Streaming request]
         Models[models.go<br/>Model listing + filter]
@@ -120,6 +128,7 @@ graph TB
 | Google | `gemini` | `:generateContent` with raw JSON Schema tools (`parametersJsonSchema`) and `cachedContents` |
 | xAI | `grok`, `grokOauth` | Responses API via the shared `core/xai` body builder and SSE parser, plus the image endpoints |
 | OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal Responses endpoints requiring a session token |
+| Claude Code CLI | `claudeCode` | No HTTP: drives a local `claude -p` process over stream-json, renders tools as a text `<tool_call>` protocol, and keeps one process per session (idle ones reaped after 15 minutes) |
 
 ## Module: streaming
 
@@ -141,7 +150,7 @@ graph LR
     Events --> Done[done / error]
 ```
 
-Bodies are capped by a 64 MiB `io.LimitReader`, frames quoted in errors at 512 bytes, and error bodies at 8 KiB.
+`OpenStream` wraps every SSE body in `WatchIdle`; the `Send` paths that parse SSE themselves (`codex`, `grok`, `grok-oauth`) wrap theirs too. Three consecutive probes without data or without content, or degenerate repetition in the latest output, end the stream with a `[Timeout]` error wrapping `context.DeadlineExceeded`, so callers can retry it like any timeout. Isolated undecodable frames are skipped and only three in a row fail the stream. Streams are not length-capped; frames quoted in errors are cut at 512 bytes and error bodies at 8 KiB.
 
 ## Module: oauth
 
@@ -251,6 +260,7 @@ stateDiagram-v2
     Streaming --> Streaming: text / reasoning / tool_call / usage
     Streaming --> Completed: done
     Streaming --> Failed: error frame
+    Streaming --> Failed: idle / repetition timeout or 3 bad frames
     Completed --> [*]
     Failed --> [*]
 ```

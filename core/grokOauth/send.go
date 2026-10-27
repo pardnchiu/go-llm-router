@@ -39,6 +39,7 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 	if err != nil {
 		return nil, 0, fmt.Errorf("go_pkg_http.POSTStream: %w", err)
 	}
+	resp.Body = llmrouter.WatchIdle(resp.Body, label)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

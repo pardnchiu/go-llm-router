@@ -3,10 +3,8 @@ package openaicodex
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -79,6 +77,7 @@ func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []
 	if err != nil {
 		return nil, 0, fmt.Errorf("github.com/pardnchiu/go-pkg/http: POSTStream: %w", err)
 	}
+	resp.Body = llmrouter.WatchIdle(resp.Body, label)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -153,10 +152,16 @@ func parseSSEStream(resp *http.Response) (*llmrouter.Output, error) {
 		}
 
 		var ev sseEvent
-		if err := json.Unmarshal([]byte(data), &ev); err != nil {
-			slog.Debug("dropped undecodable SSE frame",
-				slog.String("provider", label), slog.String("err", err.Error()))
+		ok, err := llmrouter.DecodeFrame(resp.Body, label, data, &ev)
+		if err != nil {
+			streamErr = err
+			return false
+		}
+		if !ok {
 			return true
+		}
+		if ev.Delta != "" || ev.Arguments != "" || ev.Item != nil {
+			llmrouter.TouchIdle(resp.Body, ev.Delta)
 		}
 		if ev.Type == "response.output_item.done" && ev.Item != nil && ev.Item.Type == "reasoning" {
 			for _, s := range ev.Item.Summary {
@@ -247,7 +252,7 @@ func parseSSEStream(resp *http.Response) (*llmrouter.Output, error) {
 		return true
 	}
 
-	if err := llmrouter.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, llmrouter.StreamBodyLimit)), handle); err != nil {
+	if err := llmrouter.ScanSSE(bufio.NewReader(resp.Body), handle); err != nil {
 		return nil, fmt.Errorf("codex stream read: %w", err)
 	}
 	if streamErr != nil {

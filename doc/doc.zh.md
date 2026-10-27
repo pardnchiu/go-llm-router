@@ -1,6 +1,6 @@
 # go-llm-router - 技術文件
 
-最後更新：2026-10-06
+最後更新：2026-10-27
 
 > 返回 [README](./README.zh.md)
 
@@ -20,6 +20,7 @@
   - 金鑰型：Anthropic、OpenAI、Gemini、xAI、DeepSeek、Mistral、NVIDIA、Ollama Cloud、OpenRouter、Cloudflare Workers AI
   - OAuth 型：GitHub Copilot 訂閱、ChatGPT（Codex）帳號、Grok 帳號
   - 自架或第三方 OpenAI 相容端點（`compat`）
+  - Claude Code 訂閱，並已安裝且登入 `claude` CLI（`claude-code`）
 - macOS Keychain 或 Linux `secret-tool`（僅 OAuth 供應商需要，權杖由 `go-pkg/filesystem/keychain` 保存）
 
 ## 安裝
@@ -51,6 +52,8 @@ go build ./...
 | Grok | `GROK_OAUTH_TOKEN` | `core/oauth/grok.LoginWithCallback`（PKCE 瀏覽器授權） |
 
 三者皆相容舊鍵 `agenvoy.<provider>.token`，讀取時自動回退。
+
+`claude-code` 不保存自己的憑證，而是驅動本機已登入的 `claude` CLI；`router.Config.EnableClaude` 不為 `true` 時拒絕建立。
 
 ## 使用方式
 
@@ -133,6 +136,8 @@ for evt := range events {
 	}
 }
 ```
+
+每個 SSE 回應在串流期間都受監控。連續三次探測（第一次在 30 秒，之後每 10 秒）都沒有資料，或有資料卻沒有任何文字、推理或工具呼叫內容，或最新 16 KiB 的輸出陷入重複循環時，串流以包裝 `context.DeadlineExceeded` 的 `[Timeout]` 錯誤結束。等待慢速 consumer 的時間不計入，SSE keep-alive comment 會維持串流存活。零星無法解析的 frame 會被略過，連續三個才以 `[Upstream]` 錯誤結束串流。
 
 ### 推理等級與 fast 模式
 
@@ -289,6 +294,9 @@ ID 經 `SessionUUID` 雜湊為固定 UUID，原始對話 ID 不會送出程序�
 | `codex` | `session_id` header + `prompt_cache_key` |
 | `grok` / `grok-oauth` | `prompt_cache_key` |
 | `cloudflare` | `x-session-affinity` header |
+| `claude-code` | 依 session、模型與 system prompt 重用同一個 `claude` CLI 行程（使用原始 session ID） |
+
+`llmrouter.WithCacheTTL(ctx, "1h")` 讓 `claude-code` 改用一小時的前綴快取，並把 session 存到 `router.Config.StateDir`，重啟後可接續；其他值維持 5 分鐘快取。
 
 ### 自架或第三方相容端點
 
@@ -349,7 +357,7 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 
 | 符號 | 簽名 | 說明 |
 |---|---|---|
-| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string }` | `Name` 為 `provider@model`；`Token` 供 OAuth 供應商傳入 `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken` |
+| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string; EnableClaude bool; StateDir string }` | `Name` 為 `provider@model`；`Token` 供 OAuth 供應商傳入 `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken`；`EnableClaude` 與 `StateDir` 僅 `claude-code` 使用 |
 | `router.New` | `func(config Config) (llmrouter.Agent, error)` | 依前綴建立 Agent；未知前綴且含 `@` 時改建 `compat[<prefix>]@<model>` |
 
 ### 供應商前綴
@@ -358,20 +366,23 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 |---|---|---|---|---|
 | `claude@` | `core/claude` | `APIKey` | ✓ | — |
 | `openai@` | `core/openai` | `APIKey` | ✓ | 圖片、STT、TTS |
-| `gemini@` | `core/gemini` | `APIKey` | ✓ | 圖片、STT、TTS、`cachedContents` 前綴快取 |
+| `gemini@` | `core/gemini` | `APIKey` | ✓ | 圖片、STT、TTS、`ModelInfos`、`cachedContents` 前綴快取 |
 | `grok@` | `core/grok` | `APIKey` | ✓ | 圖片 |
 | `deepseek@` | `core/deepseek` | `APIKey` | ✓ | `Usage` |
 | `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
 | `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
-| `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | `Usage` |
+| `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | — |
 | `openrouter@` | `core/openRouter` | `APIKey` | ✓ | 圖片、STT、TTS、`Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
 | `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`、`ModelInfos` |
 | `codex@` | `core/openaiCodex` | `*llmrouter.CodexToken` | ✓ | 圖片、`Usage` |
 | `grok-oauth@` | `core/grokOauth` | `*llmrouter.GrokToken` | ✓ | 圖片、`Usage` |
+| `claude-code@` | `core/claudeCode` | 本機 `claude` CLI + `EnableClaude` | — | `Usage` |
 
-每個供應商套件都提供 `New(llmrouter.Config) (*Agent, error)` 與 `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`。
+每個供應商套件都提供 `New(llmrouter.Config) (*Agent, error)`。除 `compat` 外皆提供 `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`；`claude-code` 不接受篩選（`Models(ctx, llmrouter.Config)`），回傳 CLI 解析出的模型。
+
+前綴字串匯出為 `llmrouter.PROVIDER_*` 常數，`llmrouter.Providers()` 列出所有內建前綴。
 
 ### 推理等級
 
@@ -441,7 +452,12 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 | `OpenStream` | `func(ctx, client, url, headers, body, label) (*http.Response, error)` |
 | `StreamChat` / `StreamResponses` | 分別解析 Chat Completions 與 Responses API 的 SSE，回傳事件 channel |
 | `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
-| `StreamBodyLimit` / `ErrorBodyLimit` / `ErrorFrameLimit` / `JSONBodyLimit` | 64 MiB / 8 KiB / 512 B / 64 KiB 的讀取上限 |
+| `WatchIdle` | `func(body io.ReadCloser, label string) io.ReadCloser`；為 SSE body 掛上閒置與重複輸出監控（`OpenStream` 已套用） |
+| `TouchIdle` | `func(body io.Reader, deltas ...string)`；parser 標記該 frame 有內容，並把文字送進重複偵測 |
+| `DecodeFrame` | `func(body io.Reader, label, data string, v any) (bool, error)`；略過無法解析的 frame，連續第三個才回錯（未受監控的 body 第一個就回錯） |
+| `StreamProbeInterval` / `StreamRecheckInterval` / `StreamMaxProbeFailures` | 30 秒 / 10 秒 / 3 次 |
+| `StreamRepeatWindow` / `StreamRepeatMaxPeriod` / `StreamRepeatMaxBytes` / `StreamRepeatCheckBytes` | 16 KiB 視窗、最長 4 KiB 的重複片段、4 種 byte、每 512 bytes 檢查一次 |
+| `StreamBodyLimit` / `ErrorBodyLimit` / `ErrorFrameLimit` / `JSONBodyLimit` | 64 MiB / 8 KiB / 512 B / 64 KiB 的讀取上限；SSE 串流不設上限，`StreamBodyLimit` 現用於非串流的音訊下載 |
 
 ### 圖片
 
@@ -525,10 +541,10 @@ type UsageRemaining struct {
 |---|---|---|
 | `core/openRouter` | `APIKey` | `Balance`（`total_credits - total_usage`） |
 | `core/deepseek` | `APIKey` | `Balance` |
-| `core/ollamaCloud` | `APIKey` | `Total`（月配額） |
 | `core/copilot` | `Token` | `Total`（Chat 或 premium interactions） |
 | `core/openaiCodex` | `APIKey`，`AccountID` 選填 | `FiveHour`、`Week` |
 | `core/grokOauth` | `APIKey` | `Total`（點數） |
+| `core/claudeCode` | 無（執行 `claude -p /usage`） | `FiveHour`、`Week` |
 
 ### 其他
 
@@ -539,6 +555,9 @@ type UsageRemaining struct {
 | `ResponsesAPI` | `func(providerName, model string) bool` | 決定 OpenAI / Copilot 走 Responses 還是 Chat Completions |
 | `WithSessionID` | `func(ctx context.Context, id string) context.Context` | 掛上 session ID 供前綴快取使用；空白 ID 忽略 |
 | `SessionID` / `SessionUUID` | `func(ctx context.Context) string` | 取原始 ID，或其 SHA-256 衍生的 UUID；未設定時回空字串 |
+| `WithCacheTTL` / `CacheTTL` | `func(ctx, ttl string) context.Context` / `func(ctx) string` | 指定前綴快取 TTL；僅 `claude-code` 讀取（`"1h"`，其餘為 5 分鐘） |
+| `PROVIDER_*` / `Providers` | `const string` / `func() []string` | 內建供應商前綴 |
+| `claudeCode.CheckBinary` / `claudeCode.Is` | `func() error` / `func(name string) bool` | 檢查 `PATH` 上有 `claude` CLI；判斷名稱是否使用 `claude-code` 前綴 |
 | `TruncateFrame` | `func(data string) string` | 錯誤訊息中的 SSE frame 截至 512 bytes |
 | `summary.VoiceReply` | `func(ctx, text string) (string, error)` | 超過 320 字元時以 Gemini 壓縮為可朗讀版本，金鑰取自 keychain 的 `GEMINI_API_KEY` |
 

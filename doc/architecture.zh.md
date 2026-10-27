@@ -1,6 +1,6 @@
 # go-llm-router - 架構
 
-最後更新：2026-10-06
+最後更新：2026-10-27
 
 > 返回 [README](./README.zh.md)
 
@@ -26,10 +26,13 @@ graph TB
     Registry --> KeyAgents[金鑰型 Agent]
     Registry --> OAuthAgents[OAuth 型 Agent]
     Registry --> CompatAgent[compat Agent]
+    Registry --> CLIAgent[claude-code Agent]
 
     KeyAgents --> Core[core 契約層]
     OAuthAgents --> Core
     CompatAgent --> Core
+    CLIAgent --> Core
+    CLIAgent --> ClaudeCLI[本機 claude CLI]
 
     OAuthAgents --> OAuth[core/oauth]
     OAuth --> Keychain[go-pkg keychain]
@@ -55,11 +58,14 @@ graph TB
         Provider[provider.go<br/>SupportTemperature / ResponsesAPI]
         Stream[stream.go<br/>OpenStream / StreamChat / StreamResponses]
         SSE[sse.go<br/>ScanSSE]
+        Idle[idle.go<br/>WatchIdle / TouchIdle / DecodeFrame]
+        Prefix[prefix.go<br/>PROVIDER_* / Providers]
         Image[image.go<br/>ImageAgent / ImagePixelSize]
         Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
         Session[session.go<br/>WithSessionID / SessionUUID]
     end
     Stream --> SSE
+    Stream --> Idle
     Image --> Type
     Audio --> Type
     Reasoning --> Type
@@ -71,9 +77,11 @@ graph TB
 | `reasoning.go` | 六級推理等級、別名解析、`ClampReasoning`、模型標記分類與 `ModelFilter` |
 | `mode.go` | `default` / `fast` 模式與各家 fast 層級的支援判斷 |
 | `provider.go` | `temperature` 支援、Responses API 選路、共用 HTTP client |
-| `stream.go` / `sse.go` | SSE 掃描、兩種串流格式的事件正規化、錯誤包裝與讀取上限 |
+| `stream.go` / `sse.go` | SSE 掃描、兩種串流格式的事件正規化、錯誤包裝 |
+| `idle.go` | 串流監控：閒置與無內容探測、重複輸出偵測、容忍零星無法解析的 frame |
+| `prefix.go` | `PROVIDER_*` 前綴常數與 `Providers()` |
 | `image.go` / `audio.go` | 多模態選用介面與尺寸／取樣率／WAV 封裝等純函式 |
-| `session.go` | 以 context 傳遞 session ID，雜湊為 UUID 後由供應商作為前綴快取鍵或 affinity header 送出 |
+| `session.go` | 以 context 傳遞 session ID，雜湊為 UUID 後由供應商作為前綴快取鍵或 affinity header 送出，並傳遞指定的快取 TTL |
 
 ## 模組：router
 
@@ -99,7 +107,7 @@ graph TB
 ```mermaid
 graph TB
     subgraph provider
-        New[new.go<br/>Agent 結構 / Prefix / Name]
+        New[new.go<br/>Agent 結構 / Name]
         Send[send.go<br/>訊息轉換 / 非串流請求]
         StreamFile[stream.go<br/>串流請求]
         Models[models.go<br/>模型清單 + 篩選]
@@ -120,6 +128,7 @@ graph TB
 | Google | `gemini` | `:generateContent`，工具以 `parametersJsonSchema` 傳送原始 JSON Schema，並使用 `cachedContents` |
 | xAI | `grok`、`grokOauth` | Responses API（共用 `core/xai` 的 body 組裝與 SSE 解析）+ 圖片端點 |
 | OAuth 代理 | `copilot`、`openaiCodex` | 廠商內部 Responses 端點，需 session 權杖 |
+| Claude Code CLI | `claudeCode` | 不走 HTTP：以 stream-json 驅動本機 `claude -p` 行程，工具改用文字 `<tool_call>` 協定，每個 session 保留一個行程（閒置 15 分鐘回收） |
 
 ## 模組：串流
 
@@ -141,7 +150,7 @@ graph LR
     Events --> Done[done / error]
 ```
 
-body 以 64 MiB `io.LimitReader` 封頂，錯誤訊息中的 frame 截至 512 bytes，錯誤 body 截至 8 KiB。
+`OpenStream` 為每個 SSE body 套上 `WatchIdle`；自行解析 SSE 的 `Send` 路徑（`codex`、`grok`、`grok-oauth`）也一併套用。連續三次探測沒有資料或沒有內容，或最新輸出陷入重複循環時，串流以包裝 `context.DeadlineExceeded` 的 `[Timeout]` 錯誤結束，呼叫端可比照逾時重試。零星無法解析的 frame 會被略過，連續三個才讓串流失敗。串流不設長度上限；錯誤訊息中的 frame 截至 512 bytes，錯誤 body 截至 8 KiB。
 
 ## 模組：oauth
 
@@ -251,6 +260,7 @@ stateDiagram-v2
     串流中 --> 串流中: text / reasoning / tool_call / usage
     串流中 --> 完成: done
     串流中 --> 失敗: error frame
+    串流中 --> 失敗: 閒置／重複逾時或連續 3 個壞 frame
     完成 --> [*]
     失敗 --> [*]
 ```

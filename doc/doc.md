@@ -1,6 +1,6 @@
 # go-llm-router - Documentation
 
-Last updated: 2026-10-06
+Last updated: 2026-10-27
 
 > Back to [README](../README.md)
 
@@ -20,6 +20,7 @@ Last updated: 2026-10-06
   - Key-based: Anthropic, OpenAI, Gemini, xAI, DeepSeek, Mistral, NVIDIA, Ollama Cloud, OpenRouter, Cloudflare Workers AI
   - OAuth-based: a GitHub Copilot subscription, a ChatGPT (Codex) account, a Grok account
   - Any self-hosted or third-party OpenAI-compatible endpoint (`compat`)
+  - A Claude Code subscription with the `claude` CLI installed and logged in (`claude-code`)
 - macOS Keychain or Linux `secret-tool` (OAuth providers only; tokens are stored through `go-pkg/filesystem/keychain`)
 
 ## Installation
@@ -51,6 +52,8 @@ The library reads no environment variables; callers pass every credential throug
 | Grok | `GROK_OAUTH_TOKEN` | `core/oauth/grok.LoginWithCallback` (PKCE browser authorization) |
 
 All three fall back to the legacy key `agenvoy.<provider>.token` on read.
+
+`claude-code` stores no credential of its own: it drives the locally logged-in `claude` CLI and refuses to build unless `router.Config.EnableClaude` is `true`.
 
 ## Usage
 
@@ -133,6 +136,8 @@ for evt := range events {
 	}
 }
 ```
+
+Every SSE response is watched while it streams. The stream ends with a `[Timeout]` error wrapping `context.DeadlineExceeded` when three consecutive probes (first at 30 seconds, then every 10 seconds) see no data, or data without any text, reasoning, or tool-call content, or when the latest 16 KiB of output collapses into degenerate repetition. Time spent waiting on a slow consumer is not counted, and SSE keep-alive comments keep the stream alive. Isolated undecodable frames are skipped; three in a row end the stream with an `[Upstream]` error.
 
 ### Reasoning levels and fast mode
 
@@ -289,6 +294,9 @@ The ID is hashed into a stable UUID by `SessionUUID`, so raw conversation IDs ne
 | `codex` | `session_id` header + `prompt_cache_key` |
 | `grok` / `grok-oauth` | `prompt_cache_key` |
 | `cloudflare` | `x-session-affinity` header |
+| `claude-code` | Reuses one `claude` CLI process per session, model, and system prompt (raw session ID) |
+
+`llmrouter.WithCacheTTL(ctx, "1h")` switches `claude-code` to the one-hour prompt cache and persists the session under `router.Config.StateDir`, so it resumes after a restart; any other value keeps the 5-minute cache.
 
 ### Self-hosted and third-party compatible endpoints
 
@@ -349,7 +357,7 @@ The import path is `github.com/pardnchiu/go-llm-router/core`; the package it dec
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string }` | `Name` is `provider@model`; `Token` carries `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken` for OAuth providers |
+| `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string; EnableClaude bool; StateDir string }` | `Name` is `provider@model`; `Token` carries `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken` for OAuth providers; `EnableClaude` and `StateDir` apply to `claude-code` only |
 | `router.New` | `func(config Config) (llmrouter.Agent, error)` | Builds the Agent for the prefix; an unknown prefix containing `@` becomes `compat[<prefix>]@<model>` |
 
 ### Provider prefixes
@@ -358,20 +366,23 @@ The import path is `github.com/pardnchiu/go-llm-router/core`; the package it dec
 |---|---|---|---|---|
 | `claude@` | `core/claude` | `APIKey` | ✓ | — |
 | `openai@` | `core/openai` | `APIKey` | ✓ | Image, STT, TTS |
-| `gemini@` | `core/gemini` | `APIKey` | ✓ | Image, STT, TTS, `cachedContents` prefix cache |
+| `gemini@` | `core/gemini` | `APIKey` | ✓ | Image, STT, TTS, `ModelInfos`, `cachedContents` prefix cache |
 | `grok@` | `core/grok` | `APIKey` | ✓ | Image |
 | `deepseek@` | `core/deepseek` | `APIKey` | ✓ | `Usage` |
 | `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
 | `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
-| `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | `Usage` |
+| `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | — |
 | `openrouter@` | `core/openRouter` | `APIKey` | ✓ | Image, STT, TTS, `Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
 | `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`, `ModelInfos` |
 | `codex@` | `core/openaiCodex` | `*llmrouter.CodexToken` | ✓ | Image, `Usage` |
 | `grok-oauth@` | `core/grokOauth` | `*llmrouter.GrokToken` | ✓ | Image, `Usage` |
+| `claude-code@` | `core/claudeCode` | Local `claude` CLI + `EnableClaude` | — | `Usage` |
 
-Every provider package exposes `New(llmrouter.Config) (*Agent, error)` and `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`.
+Every provider package exposes `New(llmrouter.Config) (*Agent, error)`. All but `compat` expose `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`; `claude-code` takes no filter (`Models(ctx, llmrouter.Config)`) and returns the models the CLI resolves.
+
+Prefix strings are exported as `llmrouter.PROVIDER_*` constants, and `llmrouter.Providers()` lists every built-in prefix.
 
 ### Reasoning levels
 
@@ -441,7 +452,12 @@ Flag support differs per provider; an unsupported flag is ignored rather than re
 | `OpenStream` | `func(ctx, client, url, headers, body, label) (*http.Response, error)` |
 | `StreamChat` / `StreamResponses` | Parse Chat Completions and Responses API SSE into an event channel |
 | `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
-| `StreamBodyLimit` / `ErrorBodyLimit` / `ErrorFrameLimit` / `JSONBodyLimit` | Read caps of 64 MiB / 8 KiB / 512 B / 64 KiB |
+| `WatchIdle` | `func(body io.ReadCloser, label string) io.ReadCloser`; wraps an SSE body with the idle and repetition watchdog (`OpenStream` applies it) |
+| `TouchIdle` | `func(body io.Reader, deltas ...string)`; parsers mark a frame as content and feed its text to repetition detection |
+| `DecodeFrame` | `func(body io.Reader, label, data string, v any) (bool, error)`; skips an undecodable frame, errors on the third in a row (or the first on an unwatched body) |
+| `StreamProbeInterval` / `StreamRecheckInterval` / `StreamMaxProbeFailures` | 30 s / 10 s / 3 |
+| `StreamRepeatWindow` / `StreamRepeatMaxPeriod` / `StreamRepeatMaxBytes` / `StreamRepeatCheckBytes` | 16 KiB window, 4 KiB longest repeated segment, 4 distinct bytes, checked every 512 bytes |
+| `StreamBodyLimit` / `ErrorBodyLimit` / `ErrorFrameLimit` / `JSONBodyLimit` | Read caps of 64 MiB / 8 KiB / 512 B / 64 KiB; SSE streams are not capped, `StreamBodyLimit` now bounds non-streamed audio downloads |
 
 ### Images
 
@@ -525,10 +541,10 @@ Every package exposes `Usage(ctx context.Context, config llmrouter.Config) (llmr
 |---|---|---|
 | `core/openRouter` | `APIKey` | `Balance` (`total_credits - total_usage`) |
 | `core/deepseek` | `APIKey` | `Balance` |
-| `core/ollamaCloud` | `APIKey` | `Total` (monthly quota) |
 | `core/copilot` | `Token` | `Total` (chat or premium interactions) |
 | `core/openaiCodex` | `APIKey`, optional `AccountID` | `FiveHour`, `Week` |
 | `core/grokOauth` | `APIKey` | `Total` (credits) |
+| `core/claudeCode` | None (runs `claude -p /usage`) | `FiveHour`, `Week` |
 
 ### Miscellaneous
 
@@ -539,6 +555,9 @@ Every package exposes `Usage(ctx context.Context, config llmrouter.Config) (llmr
 | `ResponsesAPI` | `func(providerName, model string) bool` | Chooses Responses over Chat Completions for OpenAI and Copilot |
 | `WithSessionID` | `func(ctx context.Context, id string) context.Context` | Attaches a session ID for prompt caching; blank IDs are ignored |
 | `SessionID` / `SessionUUID` | `func(ctx context.Context) string` | Raw ID, or its SHA-256-derived UUID; empty when unset |
+| `WithCacheTTL` / `CacheTTL` | `func(ctx, ttl string) context.Context` / `func(ctx) string` | Requests a prompt-cache TTL; only `claude-code` reads it (`"1h"`, otherwise 5 minutes) |
+| `PROVIDER_*` / `Providers` | `const string` / `func() []string` | Built-in provider prefixes |
+| `claudeCode.CheckBinary` / `claudeCode.Is` | `func() error` / `func(name string) bool` | Checks the `claude` CLI is on `PATH`; reports whether a name uses the `claude-code` prefix |
 | `TruncateFrame` | `func(data string) string` | Caps an SSE frame in error messages at 512 bytes |
 | `summary.VoiceReply` | `func(ctx, text string) (string, error)` | Compresses text over 320 characters into a speakable reply via Gemini, using `GEMINI_API_KEY` from the keychain |
 

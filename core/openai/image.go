@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -157,14 +156,22 @@ func ReadImageStream(body io.Reader) (*llmrouter.ImageResult, error) {
 	var result *llmrouter.ImageResult
 	var streamErr error
 
-	readErr := llmrouter.ScanSSE(bufio.NewReader(io.LimitReader(body, llmrouter.StreamBodyLimit)), func(_, data string) bool {
+	readErr := llmrouter.ScanSSE(bufio.NewReader(body), func(_, data string) bool {
 		if strings.TrimSpace(data) == "[DONE]" {
 			return false
 		}
 
 		var ev imageEvent
-		if err := json.Unmarshal([]byte(data), &ev); err != nil {
+		ok, err := llmrouter.DecodeFrame(body, "image", data, &ev)
+		if err != nil {
+			streamErr = err
+			return false
+		}
+		if !ok {
 			return true
+		}
+		if ev.Item != nil || strings.Contains(ev.Type, "image_generation_call") {
+			llmrouter.TouchIdle(body)
 		}
 		if ev.Error != nil {
 			streamErr = fmt.Errorf("upstream %s: %s", ev.Error.Code, ev.Error.Message)
