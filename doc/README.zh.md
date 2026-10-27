@@ -1,4 +1,4 @@
-最後更新：2026-10-06
+最後更新：2026-10-27
 
 > [!NOTE]
 > 此 README 由 [SKILL](https://github.com/agenvoy/skill-readme-generate) 生成，英文版請參閱 [這裡](../README.md)。
@@ -34,7 +34,7 @@
 
 > `go get github.com/pardnchiu/go-llm-router` · [完整文件](./doc.zh.md)
 
-- **統一 Agent 介面** — 十四個供應商共用同一組 `Send` / `SendStream` 契約，呼叫端不必為每家廠商寫轉接層。
+- **統一 Agent 介面** — 十五個供應商共用同一組 `Send` / `SendStream` 契約，呼叫端不必為每家廠商寫轉接層。
 - **字串路由工廠** — 以 `provider@model` 取得對應 Agent，未知前綴自動落到 OpenAI 相容端點成為具名實例。
 - **推理等級正規化** — `none` 到 `max` 六級對映到 Claude thinking、Gemini budget、OpenAI effort，並依模型上下限自動收斂。
 - **用量欄位吸收** — `prompt_tokens` / `input_tokens` 與各式快取欄位折疊成單一 Input / Output / Cache 形狀。
@@ -66,7 +66,7 @@ graph TB
 Just [open an issue](https://github.com/pardnchiu/go-llm-router/issues/new) to share an idea.
 
 <a href="https://github.com/pardnchiu/go-llm-router/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-10-06" alt="go-llm-router contributors" />
+  <img src="https://contrib.rocks/image?repo=pardnchiu/go-llm-router&cache_bust=2026-10-27" alt="go-llm-router contributors" />
 </a>
 
 ***
