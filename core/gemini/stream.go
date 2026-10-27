@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
@@ -30,12 +29,16 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 		finishReason := ""
 		var usage *llmrouter.Usage
 
-		reader := bufio.NewReader(io.LimitReader(resp.Body, llmrouter.StreamBodyLimit))
+		reader := bufio.NewReader(resp.Body)
 		readErr := llmrouter.ScanSSE(reader, func(_, data string) bool {
 			var chunk Output
-			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-				events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, llmrouter.TruncateFrame(data))}
+			ok, err := llmrouter.DecodeFrame(resp.Body, label, data, &chunk)
+			if err != nil {
+				events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: err}
 				return false
+			}
+			if !ok {
+				return true
 			}
 
 			if chunk.PromptFeedback != nil && chunk.PromptFeedback.BlockReason != "" {
@@ -56,6 +59,9 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 					finishReason = candidate.FinishReason
 				}
 				for _, part := range candidate.Content.Parts {
+					if part.Text != "" || part.FunctionCall != nil {
+						llmrouter.TouchIdle(resp.Body, part.Text)
+					}
 					switch {
 					case part.Text != "" && part.Thought:
 						emitted = true

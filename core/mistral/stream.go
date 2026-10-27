@@ -49,12 +49,12 @@ func streamEvents(resp *http.Response) <-chan llmrouter.StreamEvent {
 		defer resp.Body.Close()
 		defer close(events)
 
-		reader := bufio.NewReader(io.LimitReader(resp.Body, llmrouter.StreamBodyLimit))
+		reader := bufio.NewReader(resp.Body)
 		readErr := llmrouter.ScanSSE(reader, func(_, data string) bool {
 			if strings.TrimSpace(data) == "[DONE]" {
 				return false
 			}
-			return handleChunk(data, events)
+			return handleChunk(data, events, resp.Body)
 		})
 		if readErr != nil {
 			events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: fmt.Errorf("%s stream read: %w", label, readErr)}
@@ -64,16 +64,27 @@ func streamEvents(resp *http.Response) <-chan llmrouter.StreamEvent {
 	return events
 }
 
-func handleChunk(data string, events chan<- llmrouter.StreamEvent) bool {
+func handleChunk(data string, events chan<- llmrouter.StreamEvent, body io.Reader) bool {
 	var c streamChunk
-	if err := json.Unmarshal([]byte(data), &c); err != nil {
-		events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, llmrouter.TruncateFrame(data))}
+	ok, err := llmrouter.DecodeFrame(body, label, data, &c)
+	if err != nil {
+		events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: err}
 		return false
+	}
+	if !ok {
+		return true
 	}
 
 	if len(c.Choices) > 0 {
 		choice := c.Choices[0]
 		text, reasoning := splitContent(choice.Delta.Content)
+		if text != "" || reasoning != "" || len(choice.Delta.ToolCalls) > 0 {
+			deltas := []string{text, reasoning}
+			for _, tc := range choice.Delta.ToolCalls {
+				deltas = append(deltas, tc.Function.Arguments)
+			}
+			llmrouter.TouchIdle(body, deltas...)
+		}
 		if text != "" {
 			events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventText, TextDelta: text}
 		}

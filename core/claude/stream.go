@@ -3,7 +3,6 @@ package claude
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -30,9 +29,9 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 
 		usage := llmrouter.Usage{}
 
-		reader := bufio.NewReader(io.LimitReader(resp.Body, llmrouter.StreamBodyLimit))
+		reader := bufio.NewReader(resp.Body)
 		readErr := llmrouter.ScanSSE(reader, func(eventName, data string) bool {
-			return a.handleClaudeSSE(eventName, data, &usage, events, fast)
+			return a.handleClaudeSSE(eventName, data, &usage, events, fast, resp.Body)
 		})
 		if readErr != nil {
 			events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: fmt.Errorf("%s stream read: %w", label, readErr)}
@@ -42,14 +41,21 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 	return events, nil
 }
 
-func (a *Agent) handleClaudeSSE(eventName, data string, usage *llmrouter.Usage, events chan<- llmrouter.StreamEvent, fast bool) bool {
+func (a *Agent) handleClaudeSSE(eventName, data string, usage *llmrouter.Usage, events chan<- llmrouter.StreamEvent, fast bool, body io.Reader) bool {
 	var evt streamEvent
-	if err := json.Unmarshal([]byte(data), &evt); err != nil {
-		events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, llmrouter.TruncateFrame(data))}
+	ok, err := llmrouter.DecodeFrame(body, label, data, &evt)
+	if err != nil {
+		events <- llmrouter.StreamEvent{Type: llmrouter.StreamEventError, Err: err}
 		return false
+	}
+	if !ok {
+		return true
 	}
 	if eventName == "" {
 		eventName = evt.Type
+	}
+	if eventName == "content_block_start" || eventName == "content_block_delta" {
+		llmrouter.TouchIdle(body, evt.Delta.Text, evt.Delta.Thinking, evt.Delta.PartialJSON)
 	}
 
 	switch eventName {

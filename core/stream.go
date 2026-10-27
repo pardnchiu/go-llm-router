@@ -76,6 +76,7 @@ func OpenStream(ctx context.Context, client *http.Client, url string, headers ma
 			Err:      fmt.Errorf("got Content-Type %q: %w", ct, ErrStreamUnsupported),
 		}
 	}
+	resp.Body = WatchIdle(resp.Body, label)
 	return resp, nil
 }
 
@@ -109,12 +110,12 @@ func StreamChat(resp *http.Response, label string) <-chan StreamEvent {
 		defer resp.Body.Close()
 		defer close(events)
 
-		reader := bufio.NewReader(io.LimitReader(resp.Body, StreamBodyLimit))
+		reader := bufio.NewReader(resp.Body)
 		readErr := ScanSSE(reader, func(_, data string) bool {
 			if strings.TrimSpace(data) == "[DONE]" {
 				return false
 			}
-			return handleChatChunk(data, label, events)
+			return handleChatChunk(data, label, events, resp.Body)
 		})
 		if readErr != nil {
 			events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream read: %w", label, readErr)}
@@ -124,11 +125,15 @@ func StreamChat(resp *http.Response, label string) <-chan StreamEvent {
 	return events
 }
 
-func handleChatChunk(data, label string, events chan<- StreamEvent) bool {
+func handleChatChunk(data, label string, events chan<- StreamEvent, body io.Reader) bool {
 	var c chatChunk
-	if err := json.Unmarshal([]byte(data), &c); err != nil {
-		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, TruncateFrame(data))}
+	ok, err := DecodeFrame(body, label, data, &c)
+	if err != nil {
+		events <- StreamEvent{Type: StreamEventError, Err: err}
 		return false
+	}
+	if !ok {
+		return true
 	}
 	if c.Error != nil {
 		msg := c.Error.Message
@@ -148,6 +153,13 @@ func handleChatChunk(data, label string, events chan<- StreamEvent) bool {
 		reasoning := choice.Delta.ReasoningContent
 		if reasoning == "" {
 			reasoning = choice.Delta.Reasoning
+		}
+		if choice.Delta.Content != "" || reasoning != "" || len(choice.Delta.ToolCalls) > 0 {
+			deltas := []string{choice.Delta.Content, reasoning}
+			for _, tc := range choice.Delta.ToolCalls {
+				deltas = append(deltas, tc.Function.Arguments)
+			}
+			TouchIdle(body, deltas...)
 		}
 		if reasoning != "" {
 			events <- StreamEvent{Type: StreamEventReasoning, ReasoningDelta: reasoning}
@@ -284,12 +296,12 @@ func StreamResponses(resp *http.Response, label string) <-chan StreamEvent {
 		defer close(events)
 
 		state := responsesState{indexArgs: map[int]bool{}}
-		reader := bufio.NewReader(io.LimitReader(resp.Body, StreamBodyLimit))
+		reader := bufio.NewReader(resp.Body)
 		readErr := ScanSSE(reader, func(_, data string) bool {
 			if strings.TrimSpace(data) == "[DONE]" {
 				return false
 			}
-			return handleResponsesEvent(data, label, &state, events)
+			return handleResponsesEvent(data, label, &state, events, resp.Body)
 		})
 		if readErr != nil {
 			events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream read: %w", label, readErr)}
@@ -299,11 +311,18 @@ func StreamResponses(resp *http.Response, label string) <-chan StreamEvent {
 	return events
 }
 
-func handleResponsesEvent(data, label string, state *responsesState, events chan<- StreamEvent) bool {
+func handleResponsesEvent(data, label string, state *responsesState, events chan<- StreamEvent, body io.Reader) bool {
 	var ev responsesEvent
-	if err := json.Unmarshal([]byte(data), &ev); err != nil {
-		events <- StreamEvent{Type: StreamEventError, Err: fmt.Errorf("%s stream decode: %w: %s", label, err, TruncateFrame(data))}
+	ok, err := DecodeFrame(body, label, data, &ev)
+	if err != nil {
+		events <- StreamEvent{Type: StreamEventError, Err: err}
 		return false
+	}
+	if !ok {
+		return true
+	}
+	if ev.Delta != "" || ev.Item != nil {
+		TouchIdle(body, ev.Delta)
 	}
 
 	switch ev.Type {

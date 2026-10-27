@@ -3,10 +3,7 @@ package xai
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -104,10 +101,16 @@ func ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error
 		}
 
 		var ev sseEvent
-		if err := json.Unmarshal([]byte(data), &ev); err != nil {
-			slog.Debug("dropped undecodable SSE frame",
-				slog.String("provider", label), slog.String("err", err.Error()))
+		ok, err := llmrouter.DecodeFrame(resp.Body, label, data, &ev)
+		if err != nil {
+			streamErr = err
+			return false
+		}
+		if !ok {
 			return true
+		}
+		if ev.Delta != "" || ev.Arguments != "" || ev.Item != nil {
+			llmrouter.TouchIdle(resp.Body, ev.Delta)
 		}
 
 		switch ev.Type {
@@ -194,7 +197,7 @@ func ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error
 		return true
 	}
 
-	if err := llmrouter.ScanSSE(bufio.NewReader(io.LimitReader(resp.Body, llmrouter.StreamBodyLimit)), handle); err != nil {
+	if err := llmrouter.ScanSSE(bufio.NewReader(resp.Body), handle); err != nil {
 		return nil, fmt.Errorf("grok stream read: %w", err)
 	}
 	if streamErr != nil {
