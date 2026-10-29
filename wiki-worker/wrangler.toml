@@ -1,0 +1,17 @@
+name = "go-llm-router-wiki"
+account_id = "dd3e921a46bf2af8b740e6527c4f0a05"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# served from the custom domain go-llm-router.pardn.io, which every page names as
+# its canonical URL; the workers.dev mirror would publish the same pages twice
+workers_dev = false
+preview_urls = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[observability]
+enabled = false

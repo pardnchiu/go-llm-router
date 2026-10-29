@@ -1,0 +1,1057 @@
+[
+  {
+    "package": "core",
+    "name": "StreamProbeInterval",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamRecheckInterval",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamMaxProbeFailures",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamRepeatWindow",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamRepeatMaxPeriod",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamRepeatMaxBytes",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamRepeatCheckBytes",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_CLAUDE",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_CLAUDE_CODE",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_CLOUDFLARE",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_CODEX",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_COMPAT",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_COPILOT",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_DEEPSEEK",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_GEMINI",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_GROK",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_GROK_OAUTH",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_MISTRAL",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_NVIDIA",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_OLLAMA_CLOUD",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_OPENAI",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "PROVIDER_OPENROUTER",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamBodyLimit",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ErrorBodyLimit",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ErrorFrameLimit",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "JSONBodyLimit",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningDefault",
+    "kind": "const"
+  },
+  {
+    "package": "core",
+    "name": "ErrStreamUnsupported",
+    "kind": "var"
+  },
+  {
+    "package": "core",
+    "name": "CacheTTL",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "DataURI",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "DecodeFrame",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ImagePixelSize",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "IsImageModel",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "IsSTTModel",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "IsTTSModel",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "IsTextModel",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "MatchModelFilter",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "NewHTTPClient",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "OpenStream",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "PCMRate",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "Providers",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ResponsesAPI",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ResponsesStreamError",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ScanSSE",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "SessionID",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "SessionUUID",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "StreamChat",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "StreamResponses",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "SupportFast",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "SupportTemperature",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "TouchIdle",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "TruncateFrame",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "WarnFastDowngrade",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "WatchIdle",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "WithCacheTTL",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "WithSessionID",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "WrapPCM16",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "CloudFlareModels",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "CodexToken",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Config",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ContentPart",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "CopilotModels",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "CopilotRefreshToken",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "CopilotToken",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "GeminiModels",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "GrokToken",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ImageAgent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ImageOptions",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ImageResult",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ImageURL",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Message",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "MistralModels",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Mode",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ModeDefault",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ModeFast",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ParseMode",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ModelFilter",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ModelInfo",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Models",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Output",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "OutputChoices",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Reasoning",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningNone",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningLow",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningMedium",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningHigh",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningXHigh",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningMax",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ClampReasoning",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "OpenAIEffortRange",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ParseReasoning",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "ReasoningAgent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "STTAgent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "STTOptions",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "STTResult",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "StreamAgent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "StreamError",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "StreamEvent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventType",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventText",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventReasoning",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventToolCall",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventUsage",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventDone",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "StreamEventError",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "TTSAgent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "TTSOptions",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "TTSResult",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Tool",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ToolCall",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ToolCallDelta",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ToolCallFunction",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "ToolFunction",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "Usage",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "UsageRemaining",
+    "kind": "type"
+  },
+  {
+    "package": "core/claude",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/claude",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/claude",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/claude",
+    "name": "Content",
+    "kind": "type"
+  },
+  {
+    "package": "core/claude",
+    "name": "Output",
+    "kind": "type"
+  },
+  {
+    "package": "core/claudeCode",
+    "name": "CheckBinary",
+    "kind": "func"
+  },
+  {
+    "package": "core/claudeCode",
+    "name": "Is",
+    "kind": "func"
+  },
+  {
+    "package": "core/claudeCode",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/claudeCode",
+    "name": "Usage",
+    "kind": "func"
+  },
+  {
+    "package": "core/claudeCode",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/claudeCode",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/cloudflare",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/cloudflare",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/cloudflare",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/compat",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/compat",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot",
+    "name": "ModelInfos",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot",
+    "name": "Usage",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/copilot",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot/response",
+    "name": "ConvertInput",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot/response",
+    "name": "ConvertOutput",
+    "kind": "func"
+  },
+  {
+    "package": "core/copilot/response",
+    "name": "Output",
+    "kind": "type"
+  },
+  {
+    "package": "core/copilot/response",
+    "name": "ToolCall",
+    "kind": "type"
+  },
+  {
+    "package": "core/copilot/response",
+    "name": "ConvertTools",
+    "kind": "func"
+  },
+  {
+    "package": "core/deepseek",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/deepseek",
+    "name": "Usage",
+    "kind": "func"
+  },
+  {
+    "package": "core/deepseek",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/deepseek",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/gemini",
+    "name": "ModelInfos",
+    "kind": "func"
+  },
+  {
+    "package": "core/gemini",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/gemini",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/gemini",
+    "name": "Content",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini",
+    "name": "FunctionCall",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini",
+    "name": "FunctionResponse",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini",
+    "name": "InlineData",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini",
+    "name": "Output",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini",
+    "name": "Part",
+    "kind": "type"
+  },
+  {
+    "package": "core/gemini/summary",
+    "name": "VoiceReply",
+    "kind": "func"
+  },
+  {
+    "package": "core/grok",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/grok",
+    "name": "RequestImage",
+    "kind": "func"
+  },
+  {
+    "package": "core/grok",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/grok",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/grokOauth",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/grokOauth",
+    "name": "Usage",
+    "kind": "func"
+  },
+  {
+    "package": "core/grokOauth",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/grokOauth",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/mistral",
+    "name": "ModelInfos",
+    "kind": "func"
+  },
+  {
+    "package": "core/mistral",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/mistral",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/mistral",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/nvidia",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/nvidia",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/nvidia",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "ClearToken",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "EnsureFresh",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "HasToken",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "Load",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "LoginWithCallback",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "ClearToken",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "EnsureFreshSession",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "HasToken",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "Load",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "LoginWithCallback",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "DeviceCode",
+    "kind": "type"
+  },
+  {
+    "package": "core/oauth/copilot",
+    "name": "GopilotAccessToken",
+    "kind": "type"
+  },
+  {
+    "package": "core/oauth/grok",
+    "name": "ClearToken",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/grok",
+    "name": "EnsureFresh",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/grok",
+    "name": "HasToken",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/grok",
+    "name": "Load",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/grok",
+    "name": "LoginWithCallback",
+    "kind": "func"
+  },
+  {
+    "package": "core/ollamaCloud",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/ollamaCloud",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/ollamaCloud",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/openRouter",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/openRouter",
+    "name": "Usage",
+    "kind": "func"
+  },
+  {
+    "package": "core/openRouter",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/openRouter",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/openai",
+    "name": "ImageInstructions",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core/openai",
+    "name": "ImageInput",
+    "kind": "func"
+  },
+  {
+    "package": "core/openai",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/openai",
+    "name": "ReadImageStream",
+    "kind": "func"
+  },
+  {
+    "package": "core/openai",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/openai",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/openaiCodex",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/openaiCodex",
+    "name": "Usage",
+    "kind": "func"
+  },
+  {
+    "package": "core/openaiCodex",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/openaiCodex",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/router",
+    "name": "New",
+    "kind": "func"
+  },
+  {
+    "package": "core/router",
+    "name": "Config",
+    "kind": "type"
+  },
+  {
+    "package": "core/xai",
+    "name": "ResponsesAPI",
+    "kind": "const"
+  },
+  {
+    "package": "core/xai",
+    "name": "BuildBody",
+    "kind": "func"
+  },
+  {
+    "package": "core/xai",
+    "name": "ParseSSEStream",
+    "kind": "func"
+  }
+]
