@@ -14,6 +14,9 @@ const label = "claude"
 func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (<-chan llmrouter.StreamEvent, error) {
 	requestBody := a.buildRequestBody(messages, tools, reasoning)
 	requestBody["stream"] = true
+	for _, tool := range requestBody["tools"].([]map[string]any) {
+		tool["eager_input_streaming"] = true
+	}
 
 	fast := a.applyMode(requestBody, mode)
 
