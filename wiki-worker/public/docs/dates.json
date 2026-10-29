@@ -1,0 +1,312 @@
+{
+  "en:home": {
+    "hash": "134fccff65a24da0a3c5fdd33cff8a83a3704eb65277b3b3de1b1083394dd43d",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "zh:home": {
+    "hash": "24108297e9b5c1746ec53a2d778b37fa3a271149eb4aba6c8a2677d587944c14",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:getting-started": {
+    "hash": "4bf7b40718c224ac28a367f148fe2eae56d678437b89a7e1395159e371c11dd9",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:getting-started": {
+    "hash": "38550bb8d0e3d6713d21a62b65da5ea88d57c159dd5cac35a777719cad611b42",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:architecture": {
+    "hash": "96ba8accc501a82df5d0bc1b00dbd7f8046da0fb7327aa84f35a1225416bdb3f",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "zh:architecture": {
+    "hash": "9e0d8beda830cd83713914d1213256908da658aab07bbbba1067742fccd03eb7",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts": {
+    "hash": "fb0200636c93c900fb0e954783981fd8d716678df5567e3931f146f199d47463",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts": {
+    "hash": "0de47aeb4cb55c316fab9ed64ee1b10833cbac420668c67f3674bb981b45b38a",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-routing": {
+    "hash": "3ef5d8e4b2a64862e20727175e8d71af4833add30d38680d0bc33e157c80a123",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-routing": {
+    "hash": "7b8ba7723c6f4cfb1fd9ce0bbf7b2a20e2f5bfa220693c72477f9c932b0f66fb",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-reasoning": {
+    "hash": "05609d8e617b17598f75dd9e3519ed35ffc351f1eea6ca8697a822d6549c8755",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-reasoning": {
+    "hash": "91bcd4f4c762aecbf9161344bd1790ab47051b5800dc09f7779091a73cc0af3f",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-fast-mode": {
+    "hash": "a741aecb4b0470c4ee35aa6408ffbd2382a24b382749a8b192d3eff26041f434",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-fast-mode": {
+    "hash": "cd1c0d49c6e95eb6b117868a3d3bcf86f421c6f823834993f908c74f7a7abeae",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-tool-calls": {
+    "hash": "01de8c3cc808ebae85c07daa81ba6f22cace1d5c20d8a3daa2fad087cca36e68",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-tool-calls": {
+    "hash": "dfb5cf2c8f0f7f023de76811b710c11e932d31246724cedaf3051cee44c99037",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-streaming": {
+    "hash": "56824a59c0f5de02848051a1ef5a0649872a9431d669189887171e5230fc562b",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "zh:core-concepts-streaming": {
+    "hash": "4350ad3001d54bbce6dad9114d8d381e798b058d3b62ba187694f6a7d121a33b",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-usage": {
+    "hash": "3f05cbe24460d530779142c96d67dba0d8c69e15a7a1ce27732c97f4ca2d6623",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-usage": {
+    "hash": "6808678017fca45f51c810f249a9a02352126fcdfe8fd5b5b740c70521983872",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-sessions": {
+    "hash": "b7b3f449ed765fd97d8556d06038bbf2900cc283a33ebeafed1bb4a1bac5e504",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-sessions": {
+    "hash": "61dee95278074bd86ac9d5fb7dfcb31b253c8663f3b507ec1fdf482223fca820",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-images": {
+    "hash": "432908984478fc44911f70b6c22d116b52043a71578b4d93379df64152345cec",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-images": {
+    "hash": "0f6f3149ab1db4db2168fdfbaec19bdeec3667685330512e29dc46f5a4b4c4ef",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-speech": {
+    "hash": "f6f28795718bdaeac8d1d30c721eda09f0f90594c3daf12350317cfba374cec8",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-speech": {
+    "hash": "cdba7c404ce6c3787ef9cd17d9743cb4982fbcb18f482e2d2ce5714edc4a00d7",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-model-filters": {
+    "hash": "210d3ae56b0def5157e5ad555fbf618e55cc6b88137510869ec8785fd67bd717",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-model-filters": {
+    "hash": "1972cffbcc7c3b40ebc5f49ffd10d4d3b1517760aade003e87e64a2522afd010",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:configuration": {
+    "hash": "5870b1e90b7a0e552a69d5ab49637d8471a6d282f9b8799a8b291e57ccaaf57e",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:configuration": {
+    "hash": "3873e0349ba8ef9852d82cbac303d4c2ca830e5bbb7b9781268539ea880f2e2a",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:configuration-oauth": {
+    "hash": "4115085fd7323cb5c4c64e237b3d34f01b2b75d0dc6e6b3bad5ba00552e47d46",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:configuration-oauth": {
+    "hash": "7dae512b355ac51d9e47ba53ecb151d120d029f7f74b5a59fbc8c9021e889d12",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:configuration-endpoints": {
+    "hash": "b469c978e47d7e78e1abb34245a0dcbc6d739b839e4747848a5da14a4b609e5b",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:configuration-endpoints": {
+    "hash": "3b6ed8b53fabc53004cf90cb58b275b5cde2835d78ff9721b4b8afa5294c99d1",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:configuration-limits": {
+    "hash": "67feac4b3f7d860622c306ef482dc8c2c07718018eff1a338fe00de33d804881",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "zh:configuration-limits": {
+    "hash": "c1f8f22919efa7eab6365326c1ca914f6242a5396c1a7cbf2efca15162360631",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:configuration-quota": {
+    "hash": "c80ec7dcf51206af708389eb561784d43125c7dc23fc3f843a1672b4ef47adac",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:configuration-quota": {
+    "hash": "07589053e95a4fbe2ac0948cdd45a3b189c7e1ffbd388e09745deb1b0da88eb9",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference": {
+    "hash": "0a480884d3bdf90df00b1d8b8f30be1dd53eab2e1d5c552e96828b3da2e9da9b",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference": {
+    "hash": "bc553a8fcbae62644b91e0e43f74d194a353bb81addad8bf32d3c5510e3721ab",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-messages": {
+    "hash": "0343eadff7b05b954722465e024b9b954cb73843bb0ea834df29e301352bdffd",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-messages": {
+    "hash": "6a0c029ac49b57efb6c87213204533f630ddddb93eb9383cd12649d9ffcee141",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-reasoning": {
+    "hash": "42cb344fc3600ce6693861576fdeecf54974c6d78f3b63a8c8589eafca9e2bd1",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-reasoning": {
+    "hash": "668eff4e6398e8c3fd7898f2a6cd6574f450a9652fb39810f3124a134256f6b6",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-model-filters": {
+    "hash": "c8701de670421c9d25b6594b06f394f17da63bf5e4691e26c9c346085dc58b95",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-model-filters": {
+    "hash": "ace57f56621b328fd5d75002231f7385f21ef0fed33fa3b898296dc958f7795b",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-streaming": {
+    "hash": "c25911ab9559690db7cad1afa18ea32da089c3f6c6ac661db748e204354260d3",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "zh:api-reference-streaming": {
+    "hash": "41da0d264c2d854d5e845aeade4e38a846d1a7db50acd58639aaced5281b84ab",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-images": {
+    "hash": "3ef919a1739b0f6d8e6375f946d3e7af14b6fe6cfcc109a0c98d6efe82a8fe26",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-images": {
+    "hash": "2ef23b540753b2798d54834182a0d8ad3ed783c4c80f1c86b72cf329b2f90cf7",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-audio": {
+    "hash": "00974c833413d52d208433dc871e951270908d08a01c288f4637d847dd9a39fc",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-audio": {
+    "hash": "03385bcaee6e255034fca955175144193a2ec5e19155cb48faffeae2eec23d2b",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-oauth": {
+    "hash": "30dc8ce2a5b5aab6eb0551403122f794e4d97837a0132d686bc8cf819222ecb5",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-oauth": {
+    "hash": "c9dbc7389b8c9a86c2d0872d0415d59413f32909e0621070e77ad43e87f966c7",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-helpers": {
+    "hash": "66628aa8c864d1d74aab2eaad88fa175de94b55f6687ad44d497275f6f3a595b",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-helpers": {
+    "hash": "61c22bde316d9b2ae5faca36475e3054f3d20e255f90f762fd12586998a25428",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:api-reference-removed": {
+    "hash": "f6c6facf6f909975957b11fbe8ad02abb963812dabf35dd416d56ab4e16f72f0",
+    "published": "2026-10-02",
+    "modified": "2026-10-21"
+  },
+  "zh:api-reference-removed": {
+    "hash": "e97956f9b337acd2179f0af0695efbc0e20bccb9ff0e2136cc724b974fecc7de",
+    "published": "2026-10-02",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-claude-code": {
+    "hash": "90e28d672a9f548bd3255f9a3c5765e5fdb5eaeff5699461e5b94c3a5d1f37d6",
+    "published": "2026-10-21",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-claude-code": {
+    "hash": "ee4eeed5b36dd291bd3636b7664469398ed9358e4328758ddaaa3c27edca06a1",
+    "published": "2026-10-21",
+    "modified": "2026-10-30"
+  },
+  "en:core-concepts-claude-code-tools": {
+    "hash": "1bcf8432a4173d73b31a6ace3be734ba54779f461f4fd82f696614f9b2de38f1",
+    "published": "2026-10-21",
+    "modified": "2026-10-21"
+  },
+  "zh:core-concepts-claude-code-tools": {
+    "hash": "102a9490b6cb550814b1206c79376ade3226e44c0a961d9e5d925db01de40745",
+    "published": "2026-10-21",
+    "modified": "2026-10-30"
+  }
+}

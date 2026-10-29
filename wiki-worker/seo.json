@@ -1,0 +1,152 @@
+{
+  "home_title": {
+    "en": "Go LLM API for Claude Code, OpenAI, Gemini - go-llm-router",
+    "zh": "Go 多模型 AI API｜go-llm-router"
+  },
+  "descriptions": {
+    "en": {
+      "home": "Go LLM library: one LLM API for 15 providers incl. Claude Code, OpenAI, Gemini, DeepSeek, OpenRouter, and any OpenAI-compatible endpoint. By 邱敬幃 Pardn Chiu.",
+      "getting-started": "Install go-llm-router, resolve an Agent from a provider@model name, and send your first request with usage counters.",
+      "architecture": "How router.New, the provider adapters, the OAuth token store, and the shared stream and usage pipeline fit together.",
+      "core-concepts": "The single Agent interface every provider implements, plus the optional stream, reasoning, image, STT, and TTS capabilities.",
+      "core-concepts-routing": "How router.New resolves provider@model names, rewrites unknown prefixes to compat, and lets you switch providers by name.",
+      "core-concepts-reasoning": "The six reasoning levels, their aliases, how they map to each vendor, and how out-of-range requests are clamped.",
+      "core-concepts-fast-mode": "How ModeFast maps to each vendor's priority tier, checking support with SupportFast, and the fast-tier downgrade warning.",
+      "core-concepts-tool-calls": "Declaring tools in the OpenAI shape with a raw JSON Schema, returning tool results, and echoing Gemini thought signatures.",
+      "core-concepts-streaming": "Consuming normalized SendStream events, handling StreamError failures, and the watchdog that ends stalled or looping streams.",
+      "core-concepts-usage": "How vendor token fields fold into one Usage struct and how cached tokens move from Input into CacheRead.",
+      "core-concepts-sessions": "How WithSessionID becomes a prompt_cache_key or session header per provider, and how WithCacheTTL sets the Claude Code cache.",
+      "core-concepts-images": "Picking image models by provider@model, calling GenerateImage, and how ImageOptions aspect ratio and size map per vendor.",
+      "core-concepts-speech": "Default TTS voices, supported output formats per provider, and local OpenRouter voice validation.",
+      "core-concepts-model-filters": "Listing models with TextOnly, STTOnly, TTSOnly, and ImageOnly filters, marker rules, and per-provider flag support.",
+      "core-concepts-claude-code": "Running the local Claude Code CLI as a model: EnableClaude, one process per session, prompt-cache TTL, and resume.",
+      "core-concepts-claude-code-tools": "How claude-code emulates tool calls with a text protocol, find_tools schema lookup, and the call formats it parses.",
+      "configuration": "The router.Config fields and which API key, OAuth token, base URL, or Cloudflare IDs each provider prefix requires.",
+      "configuration-oauth": "Keychain keys, login flows, legacy key fallback, and automatic refresh for Copilot, Codex, and Grok OAuth tokens.",
+      "configuration-endpoints": "Pointing go-llm-router at self-hosted or third-party OpenAI-compatible endpoints and Cloudflare Workers AI Gateway.",
+      "configuration-limits": "Request, response-header, and listing timeouts, the 50-second SSE stream watchdog, and error and audio body read caps.",
+      "configuration-quota": "Which provider packages report remaining credits, balance, or quota percentage, and what each value means.",
+      "api-reference": "Agent and its optional interfaces, router.Config and router.New, the PROVIDER_* constants, and each provider package's exports.",
+      "api-reference-messages": "Fields of Message, ContentPart, Tool, ToolCall, ToolCallFunction, Output, OutputChoices, and Usage.",
+      "api-reference-reasoning": "Reasoning and Mode constants plus ParseReasoning, ClampReasoning, OpenAIEffortRange, SupportFast, and WarnFastDowngrade.",
+      "api-reference-model-filters": "ModelFilter, ModelInfo, the IsTextModel family of classifiers, and MatchModelFilter signatures.",
+      "api-reference-streaming": "StreamEvent, StreamError, SSE helpers like OpenStream and ScanSSE, the WatchIdle watchdog, DecodeFrame, and read caps.",
+      "api-reference-images": "ImageOptions and ImageResult, image endpoints and output formats per provider, ImagePixelSize and DataURI.",
+      "api-reference-audio": "STT and TTS option and result types, audio endpoints per provider, and the PCMRate and WrapPCM16 helpers.",
+      "api-reference-oauth": "Load, HasToken, ClearToken, LoginWithCallback, and EnsureFresh across the Copilot, Codex, and Grok OAuth packages.",
+      "api-reference-helpers": "NewHTTPClient, SupportTemperature, ResponsesAPI, summary.VoiceReply, and the WithSessionID and WithCacheTTL helpers.",
+      "api-reference-removed": "Exported go-llm-router symbols removed since v0.2.0, the release that removed each, and its replacement."
+    },
+    "zh": {
+      "home": "Go 多模型 LLM 函式庫：以單一 API 串接 Claude Code、OpenAI、Gemini 等 15 家 AI API，邱敬幃開發。",
+      "getting-started": "安裝 go-llm-router，用 provider@model 取得 Agent，送出第一個請求並讀取用量。",
+      "architecture": "router.New、供應商轉接層、OAuth 權杖存取與共用串流／用量管線如何組合。",
+      "core-concepts": "所有供應商實作的單一 Agent 介面，以及串流、推理、圖片、STT、TTS 選用能力。",
+      "core-concepts-routing": "router.New 如何解析 provider@model、把未知前綴改寫為 compat，並以名稱切換供應商。",
+      "core-concepts-reasoning": "六個推理等級與別名、各家對映方式，以及超出範圍時的收斂規則。",
+      "core-concepts-fast-mode": "ModeFast 對映各家優先層級、以 SupportFast 判斷支援，以及降級警告。",
+      "core-concepts-tool-calls": "以 OpenAI 形狀與 JSON Schema 宣告工具、回傳工具結果，並原樣回傳 Gemini 簽章。",
+      "core-concepts-streaming": "消費正規化的 SendStream 事件、處理 StreamError，以及結束停滯或重複輸出串流的監控機制。",
+      "core-concepts-usage": "各家 token 欄位如何折疊成單一 Usage，以及快取 token 如何自 Input 移入 CacheRead。",
+      "core-concepts-sessions": "WithSessionID 如何轉成各供應商的快取鍵或 session header，以及 WithCacheTTL 如何設定 Claude Code 快取。",
+      "core-concepts-images": "以 provider@model 選圖片模型、呼叫 GenerateImage，以及 ImageOptions 比例與尺寸的對映。",
+      "core-concepts-speech": "各供應商的預設 TTS voice、支援的輸出格式，以及 OpenRouter 的本地 voice 驗證。",
+      "core-concepts-model-filters": "以 TextOnly、STTOnly、TTSOnly、ImageOnly 列出模型、標記規則與各供應商支援。",
+      "core-concepts-claude-code": "以本機 Claude Code CLI 作為模型：EnableClaude、每個 session 一個程序、快取 TTL 與接續。",
+      "core-concepts-claude-code-tools": "claude-code 如何以文字協定模擬工具呼叫、以 find_tools 取得 schema，以及可解析的格式。",
+      "configuration": "router.Config 欄位，以及各供應商前綴需要的 API 金鑰、OAuth 權杖、BaseURL 或 Cloudflare ID。",
+      "configuration-oauth": "Copilot、Codex、Grok OAuth 權杖的 keychain 鍵、登入流程、舊鍵相容與自動刷新。",
+      "configuration-endpoints": "把 go-llm-router 指向自架或第三方 OpenAI 相容端點，以及 Cloudflare Workers AI Gateway。",
+      "configuration-limits": "請求、response header 與模型清單逾時、50 秒的 SSE 串流監控，以及錯誤與音訊 body 讀取上限。",
+      "configuration-quota": "哪些供應商套件回報剩餘點數、餘額或配額百分比，以及各值的意義。",
+      "api-reference": "Agent 與選用介面、router.Config 與 router.New、PROVIDER_* 常數，以及各供應商套件的匯出。",
+      "api-reference-messages": "Message、ContentPart、Tool、ToolCall、ToolCallFunction、Output、Usage 的欄位。",
+      "api-reference-reasoning": "Reasoning 與 Mode 常數，以及 ParseReasoning、ClampReasoning、SupportFast 等函式。",
+      "api-reference-model-filters": "ModelFilter、ModelInfo、IsTextModel 系列分類函式與 MatchModelFilter 簽名。",
+      "api-reference-streaming": "StreamEvent、StreamError、OpenStream 等 SSE 輔助函式、WatchIdle 監控、DecodeFrame 與讀取上限。",
+      "api-reference-images": "ImageOptions 與 ImageResult、各供應商圖片端點與格式、ImagePixelSize 與 DataURI。",
+      "api-reference-audio": "STT 與 TTS 選項與結果型別、各供應商語音端點，以及 PCMRate 與 WrapPCM16。",
+      "api-reference-oauth": "Copilot、Codex、Grok OAuth 套件的 Load、HasToken、LoginWithCallback、EnsureFresh。",
+      "api-reference-helpers": "NewHTTPClient、SupportTemperature、ResponsesAPI、VoiceReply 與 session、快取 TTL 輔助函式。",
+      "api-reference-removed": "v0.2.0 起移除的 go-llm-router 匯出符號、移除版本與替代做法。"
+    }
+  },
+  "keywords": {
+    "en": {
+      "home": "go-llm-router, LLM API, Claude Code, OpenAI API, Claude API, Gemini API, OpenAI-compatible, 邱敬幃, Pardn Chiu, pardnchiu",
+      "getting-started": "go-llm-router install, Go LLM quickstart, first LLM request in Go",
+      "architecture": "go-llm-router architecture, provider adapters, OAuth token store, SSE normalization",
+      "core-concepts": "Go Agent interface, StreamAgent, ImageAgent, optional capabilities",
+      "core-concepts-routing": "provider@model routing, router.New, OpenAI-compatible fallback",
+      "core-concepts-reasoning": "LLM reasoning levels, thinking budget, reasoning effort, ClampReasoning",
+      "core-concepts-fast-mode": "LLM fast mode, priority tier, SupportFast",
+      "core-concepts-tool-calls": "LLM tool calls Go, function calling, Gemini thought signature",
+      "core-concepts-streaming": "LLM streaming Go, SSE normalization, StreamEvent, stream idle timeout",
+      "core-concepts-usage": "LLM token usage, cache tokens, usage normalization",
+      "core-concepts-sessions": "prompt cache key, session affinity, WithSessionID, WithCacheTTL",
+      "core-concepts-images": "LLM image generation Go, GenerateImage, ImageOptions",
+      "core-concepts-speech": "text to speech Go, TTS voices, OpenRouter TTS",
+      "core-concepts-model-filters": "list LLM models, ModelFilter, ImageOnly, TextOnly",
+      "core-concepts-claude-code": "Claude Code CLI Go, claude -p stream-json, Claude subscription LLM, session resume",
+      "core-concepts-claude-code-tools": "Claude Code tool calls, tool_call protocol, find_tools, text tool calling",
+      "configuration": "go-llm-router configuration, API keys, router.Config",
+      "configuration-oauth": "Copilot OAuth token, Codex OAuth, Grok OAuth, keychain",
+      "configuration-endpoints": "OpenAI-compatible endpoint, LM Studio, Cloudflare AI Gateway",
+      "configuration-limits": "LLM request timeout, SSE stream watchdog, error body limit",
+      "configuration-quota": "LLM credit balance, OpenRouter credits, Copilot quota",
+      "api-reference": "go-llm-router API reference, router.New, core.Agent, PROVIDER constants",
+      "api-reference-messages": "llmrouter.Message, ToolCall, Output, Usage",
+      "api-reference-reasoning": "llmrouter.Reasoning, ParseReasoning, ModeFast",
+      "api-reference-model-filters": "ModelFilter, ModelInfo, MatchModelFilter",
+      "api-reference-streaming": "StreamEvent, StreamError, ScanSSE, OpenStream, WatchIdle, DecodeFrame",
+      "api-reference-images": "ImageOptions, ImageResult, ImagePixelSize",
+      "api-reference-audio": "STTOptions, TTSOptions, WrapPCM16",
+      "api-reference-oauth": "LoginWithCallback, EnsureFresh, OAuth token API",
+      "api-reference-helpers": "NewHTTPClient, SupportTemperature, VoiceReply, SessionUUID, CacheTTL",
+      "api-reference-removed": "go-llm-router removed APIs, breaking changes, migration"
+    },
+    "zh": {
+      "home": "go-llm-router, AI API, 多模型, LLM API, Claude Code, Gemini API, 邱敬幃",
+      "configuration-limits": "LLM 請求逾時, SSE 串流監控, 錯誤 body 上限",
+      "core-concepts-streaming": "LLM 串流 Go, SSE 正規化, StreamEvent, 串流逾時",
+      "api-reference-streaming": "StreamEvent, StreamError, ScanSSE, OpenStream, WatchIdle, DecodeFrame"
+    }
+  },
+  "brand_keywords": [],
+  "person": {
+    "id": "https://pardn.io/#pardnchiu",
+    "name": "Pardn Chiu",
+    "alt_names": [
+      "邱敬幃",
+      "Chiu Ching-Wei",
+      "pardnchiu"
+    ],
+    "same_as": [
+      "https://pardn.io/",
+      "https://www.linkedin.com/in/pardnchiu",
+      "https://github.com/pardnchiu",
+      "https://dev.to/pardnchiu",
+      "https://x.com/pardnchiu"
+    ]
+  },
+  "organization": {
+    "id": "https://pardn.io/#organization",
+    "url": "https://pardn.io/",
+    "name": "Pardn Co., Ltd",
+    "name_zh": "帕登國際有限公司",
+    "same_as": [
+      "https://github.com/pardnio"
+    ]
+  },
+  "tagline": "Taiwan · Infrastructure Engineering",
+  "og_image": "https://pardn.io/logo.jpg",
+  "favicon": "/favicon.png",
+  "x_default": "",
+  "ai_usage": {
+    "train": "y",
+    "input": "y",
+    "search": "y"
+  },
+  "programming_language": "Go",
+  "license_url": "https://opensource.org/licenses/MIT"
+}
