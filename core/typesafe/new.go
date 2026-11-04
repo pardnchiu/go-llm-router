@@ -1,0 +1,30 @@
+package typesafe
+
+import (
+	"fmt"
+	"net/http"
+
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
+)
+
+type Agent struct {
+	httpClient *http.Client
+	model      string
+	apiKey     string
+}
+
+func New(config llmrouter.Config) (*Agent, error) {
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("[Denied] typesafe.New: APIKey is required")
+	}
+
+	return &Agent{
+		httpClient: llmrouter.NewHTTPClient(),
+		model:      config.Model,
+		apiKey:     config.APIKey,
+	}, nil
+}
+
+func (a *Agent) Name() string {
+	return llmrouter.PROVIDER_TYPESAFE + "@" + a.model
+}

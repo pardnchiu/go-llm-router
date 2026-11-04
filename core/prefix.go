@@ -16,6 +16,7 @@ const (
 	PROVIDER_OLLAMA_CLOUD = "ollama-cloud"
 	PROVIDER_OPENAI       = "openai"
 	PROVIDER_OPENROUTER   = "openrouter"
+	PROVIDER_TYPESAFE     = "typesafe"
 )
 
 func Providers() []string {

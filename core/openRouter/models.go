@@ -30,6 +30,8 @@ func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.Model
 		endpoint = modelsAPI + "?output_modalities=speech"
 	case filter.STTOnly:
 		endpoint = modelsAPI + "?output_modalities=transcription"
+	case filter.DecisionOnly:
+		endpoint = modelsAPI + "?output_modalities=decisions"
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
