@@ -6,10 +6,10 @@
 
 | 符號 | 簽名 |
 |---|---|
-| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` |
+| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly, DecisionOnly bool }` |
 | `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` |
 | `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` |
-| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool`；檢查四個標記旗標，忽略 `DecisionOnly` |
 
 ## 模型清單回應型別
 

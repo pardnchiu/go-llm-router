@@ -1,6 +1,6 @@
 # go-llm-router - Architecture
 
-Last updated: 2026-10-27
+Last updated: 2026-11-05
 
 > Back to [README](../README.md)
 
@@ -13,6 +13,7 @@ Last updated: 2026-10-27
 - [Module: streaming](#module-streaming)
 - [Module: oauth](#module-oauth)
 - [Module: multimodal](#module-multimodal)
+- [Module: decisions](#module-decisions)
 - [Module: model listing and filters](#module-model-listing-and-filters)
 - [Data Flow](#data-flow)
 - [State Machines](#state-machines)
@@ -22,6 +23,9 @@ Last updated: 2026-10-27
 ```mermaid
 graph TB
     App[Caller] --> Router[router.New]
+    App --> DecisionRouter[router.NewDecision]
+    DecisionRouter --> DecisionAgents[typesafe / openrouter decision agents]
+    DecisionAgents --> Core
     Router --> Registry[newFn prefix table]
     Registry --> KeyAgents[Key-based agents]
     Registry --> OAuthAgents[OAuth agents]
@@ -40,6 +44,7 @@ graph TB
     Core --> Stream[Stream event normalization]
     Core --> Usage[Usage normalization]
     Core --> Media[Image / audio interfaces]
+    Core --> Decision[Decision interface]
     Core --> HTTP[go-pkg http]
 ```
 
@@ -62,12 +67,14 @@ graph TB
         Prefix[prefix.go<br/>PROVIDER_* / Providers]
         Image[image.go<br/>ImageAgent / ImagePixelSize]
         Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
+        DecisionFile[decision.go<br/>DecisionAgent / DecisionBody / HTTPErrorLabel]
         Session[session.go<br/>WithSessionID / SessionUUID]
     end
     Stream --> SSE
     Stream --> Idle
     Image --> Type
     Audio --> Type
+    DecisionFile --> Type
     Reasoning --> Type
 ```
 
@@ -81,6 +88,7 @@ graph TB
 | `idle.go` | Stream watchdog: idle and contentless probes, degenerate-repetition detection, tolerance for isolated undecodable frames |
 | `prefix.go` | `PROVIDER_*` prefix constants and `Providers()` |
 | `image.go` / `audio.go` | Optional multimodal interfaces plus pure helpers for sizing, sample rate, and WAV framing |
+| `decision.go` | `DecisionAgent`, question and answer types, the shared request builder and response decoder, and the HTTP error labeler |
 | `session.go` | Context-scoped session ID, hashed into a UUID that providers send as a prompt-cache key or affinity header, plus a requested cache TTL |
 
 ## Module: router
@@ -99,6 +107,8 @@ graph TB
 ```
 
 Prefixes also carry a bracketed instance name (`compat[lmstudio]@model`); `compatPrefix` extracts it and it becomes the Agent's `Name()` prefix, so one compat adapter can represent several endpoints at once.
+
+`router.NewDecision` is a second, smaller factory for decision agents: it accepts only `typesafe@` and `openrouter@` and returns `llmrouter.DecisionAgent`.
 
 ## Module: provider adapters
 
@@ -127,6 +137,7 @@ graph TB
 | Anthropic | `claude` | Messages API with thinking-budget conversion |
 | Google | `gemini` | `:generateContent` with raw JSON Schema tools (`parametersJsonSchema`) and `cachedContents` |
 | xAI | `grok`, `grokOauth` | Responses API via the shared `core/xai` body builder and SSE parser, plus the image endpoints |
+| TypeSafe | `typesafe` | Decision-only `/v1/systemone`; no chat path |
 | OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal Responses endpoints requiring a session token |
 | Claude Code CLI | `claudeCode` | No HTTP: drives a local `claude -p` process over stream-json, renders tools as a text `<tool_call>` protocol, and keeps one process per session (idle ones reaped after 15 minutes) |
 
@@ -191,6 +202,24 @@ graph TB
 
 Image and audio models are the agent model; `codex` alone generates from its chat model on the backend.
 
+## Module: decisions
+
+```mermaid
+graph TB
+    NewDecision[router.NewDecision] --> TypeSafeAgent[typesafe.Agent<br/>decision-only]
+    NewDecision --> OpenRouterAgent[openrouter.Agent]
+    NewRouter[router.New] --> OpenRouterAgent
+    TypeSafeAgent --> Body[llmrouter.DecisionBody]
+    OpenRouterAgent --> Body
+    Body --> TypeSafeAPI[typesafe<br/>/v1/systemone]
+    Body --> OpenRouterAPI[openrouter<br/>/api/alpha/decisions]
+    TypeSafeAPI --> Decode[DecisionResponse.Result]
+    OpenRouterAPI --> Decode
+    Decode --> Result[llmrouter.DecisionResult]
+```
+
+Both upstreams speak the same request and response shape, so the adapters share one builder and one decoder in `core/decision.go` and differ only in endpoint and headers. `core/typesafe` implements `DecisionAgent` without `Send`, which is why it has its own factory instead of a `router.New` prefix. Upstream failures are labeled by `HTTPErrorLabel`; request validation happens in `DecisionBody` before any network call.
+
 ## Module: model listing and filters
 
 ```mermaid
@@ -199,13 +228,13 @@ graph LR
     Models --> Catalog[Vendor catalogs]
     Models --> TextOnlyOnly[TextOnly only<br/>llmrouter.IsTextModel]
     Markers --> MarkerProviders[openai / gemini / grok / grok-oauth<br/>all four flags; ImageOnly excludes video]
-    Catalog --> OpenRouterCat[openrouter<br/>/images/models, ?output_modalities=speech / transcription]
+    Catalog --> OpenRouterCat[openrouter<br/>/images/models, ?output_modalities=speech / transcription / decisions]
     Catalog --> CloudflareCat[cloudflare<br/>Workers AI task name]
     TextOnlyOnly --> TextProviders[claude / copilot / deepseek / mistral / nvidia / ollama-cloud / codex]
     Models --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
 ```
 
-Three strategies coexist. `openai`, `gemini`, `grok`, and `grok-oauth` classify model IDs with `MatchModelFilter`, honoring all four flags. `openrouter` reads its own catalogs: `ImageOnly` from `/api/v1/images/models` (the exact catalog `/api/v1/images` accepts), `TTSOnly` / `STTOnly` from `/api/v1/models?output_modalities=speech` / `transcription`. `cloudflare` filters on the Workers AI task name (`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`) and ignores `ImageOnly`. Every other provider honors only `TextOnly`.
+Three strategies coexist. `openai`, `gemini`, `grok`, and `grok-oauth` classify model IDs with `MatchModelFilter`, honoring all four flags. `openrouter` reads its own catalogs: `ImageOnly` from `/api/v1/images/models` (the exact catalog `/api/v1/images` accepts), `TTSOnly` / `STTOnly` / `DecisionOnly` from `/api/v1/models?output_modalities=speech` / `transcription` / `decisions`. `cloudflare` filters on the Workers AI task name (`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`) and ignores `ImageOnly`. Every other provider honors only `TextOnly`; `typesafe.Models` takes no filter and lists only decision models.
 
 ## Data Flow
 

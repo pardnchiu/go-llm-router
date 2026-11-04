@@ -37,6 +37,7 @@
 - **Reasoning Level Normalization** — Six levels from `none` to `max` map onto Claude thinking, Gemini budgets, and OpenAI effort, clamped to each model's range.
 - **Usage Field Absorption** — `prompt_tokens` / `input_tokens` and every cache variant fold into a single Input / Output / Cache shape.
 - **Multimodal and OAuth Extensions** — Built-in Copilot / Codex / Grok OAuth flows, plus image generation, speech-to-text, and text-to-speech agents.
+- **Typed Decisions** — Ask yes/no, choice, and score questions about a piece of text and get probability-weighted answers from TypeSafe or OpenRouter through one `DecisionAgent`.
 
 ## Architecture
 
@@ -53,6 +54,9 @@ graph TB
     Agent --> Stream[Stream event normalization]
     Agent --> Usage[Usage normalization]
     Agent --> Media[Image / audio agents]
+    App --> DecisionRouter[router.NewDecision]
+    DecisionRouter --> Decision[llmrouter.DecisionAgent]
+    Decision --> DecisionProviders[TypeSafe / OpenRouter]
 ```
 
 ## License

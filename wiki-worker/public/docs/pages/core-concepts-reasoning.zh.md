@@ -30,6 +30,18 @@ if limited, ok := agent.(llmrouter.ReasoningAgent); ok {
 
 收斂而非報錯的理由：呼叫端通常是一個對所有模型共用的設定值，讓上限比較低的模型直接跑完，比讓整個請求失敗更符合實際使用。
 
+## Claude 模型範圍
+
+`claude` 依模型 ID 決定可用範圍與 `none` 的送法：
+
+| 模型 ID 含 | 範圍 | `none` 送出 |
+|---|---|---|
+| `-4-5`、`-4-1` | `none`–`high`（thinking budget） | 不開 thinking，`temperature` 0.2 |
+| `opus-5` | `low`–`max` | 不會送出；`none` 收斂為 `low` |
+| `sonnet-5` | `none`–`max` | `thinking: {"type": "between_tools"}` |
+| `fable`、`mythos` | `none`–`max` | 不帶 `thinking` 欄位 |
+| 其他 ID | `none`–`max` | `thinking: {"type": "disabled"}` |
+
 ## 相關頁面
 
 - [fast 模式](/zh/core-concepts-fast-mode)：另一個逐請求設定

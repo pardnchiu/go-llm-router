@@ -1,6 +1,6 @@
 # go-llm-router - 技術文件
 
-最後更新：2026-10-27
+最後更新：2026-11-05
 
 > 返回 [README](./README.zh.md)
 
@@ -264,6 +264,36 @@ if err != nil {
 os.WriteFile("out."+strings.TrimPrefix(speech.MimeType, "audio/"), speech.Audio, 0644)
 ```
 
+### 決策問答
+
+`router.NewDecision` 為 `typesafe@` 或 `openrouter@` 建立決策 agent；`openrouter` 的對話 agent 同樣實作 `llmrouter.DecisionAgent`。
+
+```go
+decider, err := router.NewDecision(router.Config{Name: "typesafe@jev-latest", APIKey: key})
+if err != nil {
+	return err
+}
+result, err := decider.Decide(ctx, ticket, map[string]llmrouter.DecisionQuestion{
+	"team": {
+		Type:         llmrouter.DecisionChoice,
+		Instructions: "Which team should own this ticket?",
+		Criteria:     map[string]string{"payments": "Checkout or billing", "frontend": "Rendering or layout"},
+	},
+	"urgency": {
+		Type:         llmrouter.DecisionScore,
+		Instructions: "How urgent is this ticket?",
+		Criteria:     []string{"Can wait", "This week", "Blocking revenue"},
+	},
+	"is_bug": {Type: llmrouter.DecisionNoul, Instructions: "Is the customer reporting a defect?"},
+})
+if err != nil {
+	return err
+}
+fmt.Println(result.Answers["team"].Choice, result.Answers["urgency"].Score, result.Answers["is_bug"].Noul)
+```
+
+要讓同一份 `questions` 在兩個供應商上都能用：每題都給 `Instructions`、noul 的 `Criteria` 的 `true` 與 `false` 都給或都不給、score 不超過 10 級。前兩項是 OpenRouter 的必填規則，第三項是 TypeSafe 的上限。
+
 ### 查詢餘額與配額
 
 ```go
@@ -347,6 +377,10 @@ type STTAgent interface {
 type TTSAgent interface {
 	Speak(ctx context.Context, text string, opts TTSOptions) (*TTSResult, error)
 }
+
+type DecisionAgent interface {
+	Decide(ctx context.Context, state any, questions map[string]DecisionQuestion) (*DecisionResult, error)
+}
 ```
 
 `Agent` 為必要實作，其餘皆以型別斷言取得。
@@ -359,6 +393,7 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 |---|---|---|
 | `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string; EnableClaude bool; StateDir string }` | `Name` 為 `provider@model`；`Token` 供 OAuth 供應商傳入 `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken`；`EnableClaude` 與 `StateDir` 僅 `claude-code` 使用 |
 | `router.New` | `func(config Config) (llmrouter.Agent, error)` | 依前綴建立 Agent；未知前綴且含 `@` 時改建 `compat[<prefix>]@<model>` |
+| `router.NewDecision` | `func(config Config) (llmrouter.DecisionAgent, error)` | 為 `typesafe@` 或 `openrouter@` 建立決策 agent；其他前綴回傳 `[Invalid] router.NewDecision: ...` |
 
 ### 供應商前綴
 
@@ -372,17 +407,18 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 | `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
 | `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
 | `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | — |
-| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | 圖片、STT、TTS、`Usage` |
+| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | 圖片、STT、TTS、決策、`Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
 | `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`、`ModelInfos` |
 | `codex@` | `core/openaiCodex` | `*llmrouter.CodexToken` | ✓ | 圖片、`Usage` |
 | `grok-oauth@` | `core/grokOauth` | `*llmrouter.GrokToken` | ✓ | 圖片、`Usage` |
 | `claude-code@` | `core/claudeCode` | 本機 `claude` CLI + `EnableClaude` | — | `Usage` |
+| `typesafe@` | `core/typesafe` | `APIKey` | — | 僅決策，以 `router.NewDecision` 建立 |
 
-每個供應商套件都提供 `New(llmrouter.Config) (*Agent, error)`。除 `compat` 外皆提供 `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`；`claude-code` 不接受篩選（`Models(ctx, llmrouter.Config)`），回傳 CLI 解析出的模型。
+每個供應商套件都提供 `New(llmrouter.Config) (*Agent, error)`。除 `compat` 外皆提供 `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`；`claude-code` 不接受篩選（`Models(ctx, llmrouter.Config)`），回傳 CLI 解析出的模型；`typesafe.Models(ctx, llmrouter.Config)` 同樣不接受篩選。
 
-前綴字串匯出為 `llmrouter.PROVIDER_*` 常數，`llmrouter.Providers()` 列出所有內建前綴。
+前綴字串匯出為 `llmrouter.PROVIDER_*` 常數，`llmrouter.Providers()` 列出所有內建對話前綴（不含 `typesafe`）。
 
 ### 推理等級
 
@@ -401,6 +437,8 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 | `ClampReasoning` | `func(r, lo, hi Reasoning, provider, model string) Reasoning` | 收斂時輸出 debug log |
 | `OpenAIEffortRange` | `func(model string) (low, high Reasoning)` | 依 OpenAI 模型世代決定 effort 區間 |
 
+`claude` 依模型 ID 決定範圍：`-4-5`／`-4-1` 使用 thinking budget，上限 `high`，`none` 以不開 thinking 加 `temperature` 0.2 送出；`opus-5` 下限為 `low`，`none` 收斂為 `low`；`sonnet-5` 的 `none` 送出 `thinking: {"type": "between_tools"}`；`fable`／`mythos` 不帶 `thinking`；其他 ID 送出 `thinking: {"type": "disabled"}`。
+
 ### 模式
 
 | 符號 | 簽名 | 說明 |
@@ -414,9 +452,9 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 
 | 符號 | 簽名 | 說明 |
 |---|---|---|
-| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` | 多個條件同時成立時取交集 |
+| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly, DecisionOnly bool }` | 多個條件同時成立時取交集；`DecisionOnly` 僅 `openrouter` 生效 |
 | `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` | 依模型 ID 標記判斷；`IsImageModel` 排除 video 模型 |
-| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | `openai`、`gemini`、`grok`、`grok-oauth` 的清單使用 |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | `openai`、`gemini`、`grok`、`grok-oauth` 的清單使用；忽略 `DecisionOnly` |
 | `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` | `ModelInfos` 的回傳元素 |
 
 各供應商支援的旗標不同，不支援的旗標會被忽略而非報錯：
@@ -424,7 +462,7 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 | 供應商 | `TextOnly` | `STTOnly` | `TTSOnly` | `ImageOnly` | 來源 |
 |---|---|---|---|---|---|
 | `openai`、`gemini`、`grok`、`grok-oauth` | ✓ | ✓ | ✓ | ✓ | 模型 ID 標記 |
-| `openrouter` | ✓ | ✓ | ✓ | ✓ | `/api/v1/images/models`、`/api/v1/models?output_modalities=speech` / `transcription` |
+| `openrouter` | ✓ | ✓ | ✓ | ✓ | `/api/v1/images/models`、`/api/v1/models?output_modalities=speech` / `transcription` / `decisions`（`DecisionOnly`） |
 | `cloudflare` | ✓ | ✓ | ✓ | — | Workers AI task 名稱 |
 | `claude`、`copilot`、`deepseek`、`mistral`、`nvidia`、`ollama-cloud`、`codex` | ✓ | — | — | — | 模型 ID 標記 |
 
@@ -512,6 +550,55 @@ type TTSOptions struct{ Voice, Format string } // wav（預設）/ mp3 / opus / 
 | `WrapPCM16` | `func(pcm []byte, rate int) []byte` | 補上 44 bytes 的 WAV header |
 | `DataURI` | `func(mime, b64 string) string` | mime 為空時預設 `image/png` |
 
+### 決策問答
+
+```go
+type DecisionAgent interface {
+	Decide(ctx context.Context, state any, questions map[string]DecisionQuestion) (*DecisionResult, error)
+}
+
+type DecisionQuestion struct {
+	Type         DecisionType // DecisionNoul / DecisionChoice / DecisionScore
+	Instructions any
+	Criteria     any
+}
+
+type DecisionAnswer struct {
+	Type          DecisionType
+	Noul          float64
+	Choice        string
+	Score         float64
+	Confidence    *float64
+	Probabilities map[string]float64
+	Legend        map[string]any
+}
+
+type DecisionResult struct {
+	Model   string
+	Answers map[string]DecisionAnswer
+	Usage   Usage
+}
+```
+
+| `Type` | `Criteria` | 答案 |
+|---|---|---|
+| `DecisionNoul` | 選填 `{"true": ..., "false": ...}` | `Noul`，介於 0–1 |
+| `DecisionChoice` | 必填，選項 → 說明的 map | `Choice`、`Confidence`、各選項的 `Probabilities` |
+| `DecisionScore` | 必填，依序排列的等級 slice | `Score`（機率加權後的索引）、`Confidence`、`Legend`、各等級的 `Probabilities` |
+
+| 供應商 | 套件 | 端點 | `Models` |
+|---|---|---|---|
+| `typesafe@` | `core/typesafe` | `POST https://api.typesafe.ai/v1/systemone` | `typesafe.Models(ctx, llmrouter.Config)`，不接受篩選 |
+| `openrouter@` | `core/openRouter` | `POST https://openrouter.ai/api/alpha/decisions` | `openrouter.Models` 搭配 `ModelFilter{DecisionOnly: true}` |
+
+| 符號 | 簽名 | 說明 |
+|---|---|---|
+| `DecisionBody` | `func(model string, state any, questions map[string]DecisionQuestion) (map[string]any, error)` | 共用的請求組裝；model 為空、`state` 為 nil、`questions` 為空或 `Type` 不合法時，送出前即回傳 `[Invalid] decision...` |
+| `DecisionResponse`／`(DecisionResponse).Result` | `struct`／`func(label string) (*DecisionResult, error)` | 共用的回應解析；`answers` 為空時回傳 `[Upstream] <label>: response has no answers` |
+| `typesafe.New` | `func(config llmrouter.Config) (*Agent, error)` | 只做決策的 agent，提供 `Name` 與 `Decide`；`APIKey` 為空時回傳 `[Denied]` |
+
+`Usage.CacheRead` 取自 OpenRouter 的 `input_tokens_details.cached_tokens`；TypeSafe 不回報快取 token。
+
 ### OAuth
 
 `core/oauth/copilot`、`core/oauth/codex`、`core/oauth/grok` 三個套件提供相同形狀的 API：
@@ -558,6 +645,7 @@ type UsageRemaining struct {
 | `WithCacheTTL` / `CacheTTL` | `func(ctx, ttl string) context.Context` / `func(ctx) string` | 指定前綴快取 TTL；僅 `claude-code` 讀取（`"1h"`，其餘為 5 分鐘） |
 | `PROVIDER_*` / `Providers` | `const string` / `func() []string` | 內建供應商前綴 |
 | `claudeCode.CheckBinary` / `claudeCode.Is` | `func() error` / `func(name string) bool` | 檢查 `PATH` 上有 `claude` CLI；判斷名稱是否使用 `claude-code` 前綴 |
+| `HTTPErrorLabel` | `func(code int, err error) string` | HTTP 失敗的錯誤標示：context 錯誤對應 `Canceled`／`Timeout`，沒有回應為 `Unavailable`，其餘依狀態碼（`Invalid`、`Denied`、`Limit`、`Not found`、`Conflict`、`Timeout`、`Unavailable`），都不符則為 `Upstream` |
 | `TruncateFrame` | `func(data string) string` | 錯誤訊息中的 SSE frame 截至 512 bytes |
 | `summary.VoiceReply` | `func(ctx, text string) (string, error)` | 超過 320 字元時以 Gemini 壓縮為可朗讀版本，金鑰取自 keychain 的 `GEMINI_API_KEY` |
 

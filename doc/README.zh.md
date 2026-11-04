@@ -1,4 +1,4 @@
-最後更新：2026-10-27
+最後更新：2026-11-05
 
 > [!NOTE]
 > 此 README 由 [SKILL](https://github.com/agenvoy/skill-readme-generate) 生成，英文版請參閱 [這裡](../README.md)。
@@ -39,6 +39,7 @@
 - **推理等級正規化** — `none` 到 `max` 六級對映到 Claude thinking、Gemini budget、OpenAI effort，並依模型上下限自動收斂。
 - **用量欄位吸收** — `prompt_tokens` / `input_tokens` 與各式快取欄位折疊成單一 Input / Output / Cache 形狀。
 - **多模態與 OAuth 延伸** — 內建 Copilot / Codex / Grok OAuth 流程，以及圖片生成、語音轉文字與文字轉語音代理。
+- **型別化決策問答** — 對一段文字提出是非、選擇與評分題，透過同一個 `DecisionAgent` 從 TypeSafe 或 OpenRouter 取得以機率加權的答案。
 
 ## 架構
 
@@ -55,6 +56,9 @@ graph TB
     Agent --> Stream[串流事件正規化]
     Agent --> Usage[用量正規化]
     Agent --> Media[圖片 / 語音代理]
+    App --> DecisionRouter[router.NewDecision]
+    DecisionRouter --> Decision[llmrouter.DecisionAgent]
+    Decision --> DecisionProviders[TypeSafe / OpenRouter]
 ```
 
 ## 授權

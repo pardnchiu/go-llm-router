@@ -111,6 +111,11 @@
   },
   {
     "package": "core",
+    "name": "PROVIDER_TYPESAFE",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
     "name": "StreamBodyLimit",
     "kind": "const-or-var"
   },
@@ -151,7 +156,17 @@
   },
   {
     "package": "core",
+    "name": "DecisionBody",
+    "kind": "func"
+  },
+  {
+    "package": "core",
     "name": "DecodeFrame",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "HTTPErrorLabel",
     "kind": "func"
   },
   {
@@ -323,6 +338,51 @@
     "package": "core",
     "name": "CopilotToken",
     "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionAgent",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionAnswer",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionQuestion",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionResponse",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionResult",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionType",
+    "kind": "type"
+  },
+  {
+    "package": "core",
+    "name": "DecisionNoul",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "DecisionChoice",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "DecisionScore",
+    "kind": "const-or-var"
   },
   {
     "package": "core",
@@ -1036,8 +1096,28 @@
   },
   {
     "package": "core/router",
+    "name": "NewDecision",
+    "kind": "func"
+  },
+  {
+    "package": "core/router",
     "name": "Config",
     "kind": "type"
+  },
+  {
+    "package": "core/typesafe",
+    "name": "Models",
+    "kind": "func"
+  },
+  {
+    "package": "core/typesafe",
+    "name": "Agent",
+    "kind": "type"
+  },
+  {
+    "package": "core/typesafe",
+    "name": "New",
+    "kind": "func"
   },
   {
     "package": "core/xai",

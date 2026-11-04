@@ -24,6 +24,7 @@ An agent without a capability fails the assertion.
 | `ImageAgent` | `GenerateImage` | `openai`, `codex`, `gemini`, `grok`, `grok-oauth`, `openrouter` |
 | `STTAgent` | `Transcribe` | `openai`, `gemini`, `openrouter` |
 | `TTSAgent` | `Speak` | `openai`, `gemini`, `openrouter` |
+| `DecisionAgent` | `Decide` | `openrouter`; `typesafe` agents from `router.NewDecision` implement only this interface |
 
 ## Why interfaces instead of flags
 
@@ -33,3 +34,4 @@ The split exists so capability differences live in the type system: one assertio
 
 - [Model Routing](/core-concepts-routing): how `router.New` picks the adapter
 - [Interfaces and Router](/api-reference): full interface signatures
+- [Decisions](/core-concepts-decisions): typed questions through `DecisionAgent`

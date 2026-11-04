@@ -30,6 +30,18 @@ if limited, ok := agent.(llmrouter.ReasoningAgent); ok {
 
 Clamping beats failing because the caller usually holds one setting shared across models; letting a lower-ceiling model run at its ceiling is closer to what the caller meant than failing the whole request.
 
+## Claude model ranges
+
+`claude` picks the range and the `none` behavior from the model ID:
+
+| Model ID contains | Range | Sent for `none` |
+|---|---|---|
+| `-4-5`, `-4-1` | `none`–`high` (thinking budget) | no thinking, `temperature` 0.2 |
+| `opus-5` | `low`–`max` | never sent; `none` clamps to `low` |
+| `sonnet-5` | `none`–`max` | `thinking: {"type": "between_tools"}` |
+| `fable`, `mythos` | `none`–`max` | no `thinking` field |
+| any other ID | `none`–`max` | `thinking: {"type": "disabled"}` |
+
 ## Related
 
 - [Fast Mode](/core-concepts-fast-mode): the other per-request knob
