@@ -22,7 +22,11 @@ func limits(model string) (mode thinkingMode, low, high llmrouter.Reasoning) {
 	if strings.Contains(model, "opus-4-6") || strings.Contains(model, "sonnet-4-6") {
 		mode = mode46
 	}
-	return mode, llmrouter.ReasoningNone, llmrouter.ReasoningMax
+	low = llmrouter.ReasoningNone
+	if strings.Contains(model, "opus-5") {
+		low = llmrouter.ReasoningLow
+	}
+	return mode, low, llmrouter.ReasoningMax
 }
 
 func (a *Agent) ReasoningLimits() (llmrouter.Reasoning, llmrouter.Reasoning) {
@@ -57,6 +61,8 @@ func (a *Agent) applyReasoning(body map[string]any, reasoning llmrouter.Reasonin
 		case mode == modeBudget:
 			body["temperature"] = 0.2
 		case strings.Contains(a.model, "fable"), strings.Contains(a.model, "mythos"):
+		case strings.Contains(a.model, "sonnet-5"):
+			body["thinking"] = map[string]any{"type": "between_tools"}
 		default:
 			body["thinking"] = map[string]any{"type": "disabled"}
 		}

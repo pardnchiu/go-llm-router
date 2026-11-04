@@ -20,6 +20,7 @@ import (
 	openrouter "github.com/pardnchiu/go-llm-router/core/openRouter"
 	"github.com/pardnchiu/go-llm-router/core/openai"
 	openaicodex "github.com/pardnchiu/go-llm-router/core/openaiCodex"
+	"github.com/pardnchiu/go-llm-router/core/typesafe"
 )
 
 type Config struct {
@@ -122,4 +123,15 @@ func New(config Config) (llmrouter.Agent, error) {
 		fn = newFn[llmrouter.PROVIDER_COMPAT]
 	}
 	return fn(config)
+}
+
+func NewDecision(config Config) (llmrouter.DecisionAgent, error) {
+	prov, model, _ := strings.Cut(config.Name, "@")
+	switch prov {
+	case llmrouter.PROVIDER_TYPESAFE:
+		return typesafe.New(llmrouter.Config{Model: model, APIKey: config.APIKey})
+	case llmrouter.PROVIDER_OPENROUTER:
+		return openrouter.New(llmrouter.Config{Model: model, APIKey: config.APIKey})
+	}
+	return nil, fmt.Errorf("[Invalid] router.NewDecision: provider %q in %q must be typesafe or openrouter", prov, config.Name)
 }

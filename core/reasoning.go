@@ -137,10 +137,11 @@ func leadingInt(text string) (int, bool) {
 }
 
 type ModelFilter struct {
-	TextOnly  bool
-	STTOnly   bool
-	TTSOnly   bool
-	ImageOnly bool
+	TextOnly     bool
+	STTOnly      bool
+	TTSOnly      bool
+	ImageOnly    bool
+	DecisionOnly bool
 }
 
 var nonTextMarkers = []string{
