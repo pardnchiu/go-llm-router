@@ -24,6 +24,7 @@ type Agent interface {
 | `ImageAgent` | `GenerateImage` | `openai`、`codex`、`gemini`、`grok`、`grok-oauth`、`openrouter` |
 | `STTAgent` | `Transcribe` | `openai`、`gemini`、`openrouter` |
 | `TTSAgent` | `Speak` | `openai`、`gemini`、`openrouter` |
+| `DecisionAgent` | `Decide` | `openrouter`；`router.NewDecision` 建出的 `typesafe` agent 只實作這個介面 |
 
 ## 為何用介面而非旗標
 
@@ -33,3 +34,4 @@ type Agent interface {
 
 - [模型路由](/zh/core-concepts-routing)：`router.New` 如何選轉接層
 - [介面與工廠](/zh/api-reference)：完整介面簽名
+- [決策問答](/zh/core-concepts-decisions)：透過 `DecisionAgent` 提出型別化問題

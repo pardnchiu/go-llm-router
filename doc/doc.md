@@ -1,6 +1,6 @@
 # go-llm-router - Documentation
 
-Last updated: 2026-10-27
+Last updated: 2026-11-05
 
 > Back to [README](../README.md)
 
@@ -264,6 +264,36 @@ if err != nil {
 os.WriteFile("out."+strings.TrimPrefix(speech.MimeType, "audio/"), speech.Audio, 0644)
 ```
 
+### Decisions
+
+`router.NewDecision` builds a decision agent for `typesafe@` or `openrouter@`; the `openrouter` chat agent also satisfies `llmrouter.DecisionAgent`.
+
+```go
+decider, err := router.NewDecision(router.Config{Name: "typesafe@jev-latest", APIKey: key})
+if err != nil {
+	return err
+}
+result, err := decider.Decide(ctx, ticket, map[string]llmrouter.DecisionQuestion{
+	"team": {
+		Type:         llmrouter.DecisionChoice,
+		Instructions: "Which team should own this ticket?",
+		Criteria:     map[string]string{"payments": "Checkout or billing", "frontend": "Rendering or layout"},
+	},
+	"urgency": {
+		Type:         llmrouter.DecisionScore,
+		Instructions: "How urgent is this ticket?",
+		Criteria:     []string{"Can wait", "This week", "Blocking revenue"},
+	},
+	"is_bug": {Type: llmrouter.DecisionNoul, Instructions: "Is the customer reporting a defect?"},
+})
+if err != nil {
+	return err
+}
+fmt.Println(result.Answers["team"].Choice, result.Answers["urgency"].Score, result.Answers["is_bug"].Noul)
+```
+
+To run one `questions` map on both providers, give every question `Instructions`, send noul `Criteria` with both `true` and `false` or not at all, and keep scores to 10 levels: OpenRouter requires the first two, TypeSafe caps the third.
+
 ### Querying balance and quota
 
 ```go
@@ -347,6 +377,10 @@ type STTAgent interface {
 type TTSAgent interface {
 	Speak(ctx context.Context, text string, opts TTSOptions) (*TTSResult, error)
 }
+
+type DecisionAgent interface {
+	Decide(ctx context.Context, state any, questions map[string]DecisionQuestion) (*DecisionResult, error)
+}
 ```
 
 `Agent` is mandatory; every other interface is reached by type assertion.
@@ -359,6 +393,7 @@ The import path is `github.com/pardnchiu/go-llm-router/core`; the package it dec
 |---|---|---|
 | `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string; EnableClaude bool; StateDir string }` | `Name` is `provider@model`; `Token` carries `*llmrouter.CopilotToken` / `*llmrouter.CodexToken` / `*llmrouter.GrokToken` for OAuth providers; `EnableClaude` and `StateDir` apply to `claude-code` only |
 | `router.New` | `func(config Config) (llmrouter.Agent, error)` | Builds the Agent for the prefix; an unknown prefix containing `@` becomes `compat[<prefix>]@<model>` |
+| `router.NewDecision` | `func(config Config) (llmrouter.DecisionAgent, error)` | Builds a decision agent for `typesafe@` or `openrouter@`; any other prefix returns `[Invalid] router.NewDecision: ...` |
 
 ### Provider prefixes
 
@@ -372,17 +407,18 @@ The import path is `github.com/pardnchiu/go-llm-router/core`; the package it dec
 | `mistral@` | `core/mistral` | `APIKey` | ✓ | `ModelInfos` |
 | `nvidia@` | `core/nvidia` | `APIKey` | ✓ | — |
 | `ollama-cloud@` | `core/ollamaCloud` | `APIKey` | ✓ | — |
-| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | Image, STT, TTS, `Usage` |
+| `openrouter@` | `core/openRouter` | `APIKey` | ✓ | Image, STT, TTS, Decisions, `Usage` |
 | `cloudflare@` | `core/cloudflare` | `APIKey` + `AccountID` + `GatewayID` | ✓ | — |
 | `compat@` / `compat[name]@` | `core/compat` | `APIKey` + `BaseURL` | ✓ | — |
 | `copilot@` | `core/copilot` | `*llmrouter.CopilotToken` | ✓ | `Usage`, `ModelInfos` |
 | `codex@` | `core/openaiCodex` | `*llmrouter.CodexToken` | ✓ | Image, `Usage` |
 | `grok-oauth@` | `core/grokOauth` | `*llmrouter.GrokToken` | ✓ | Image, `Usage` |
 | `claude-code@` | `core/claudeCode` | Local `claude` CLI + `EnableClaude` | — | `Usage` |
+| `typesafe@` | `core/typesafe` | `APIKey` | — | Decisions only, built with `router.NewDecision` |
 
-Every provider package exposes `New(llmrouter.Config) (*Agent, error)`. All but `compat` expose `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`; `claude-code` takes no filter (`Models(ctx, llmrouter.Config)`) and returns the models the CLI resolves.
+Every provider package exposes `New(llmrouter.Config) (*Agent, error)`. All but `compat` expose `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`; `claude-code` takes no filter (`Models(ctx, llmrouter.Config)`) and returns the models the CLI resolves; `typesafe.Models(ctx, llmrouter.Config)` also takes no filter.
 
-Prefix strings are exported as `llmrouter.PROVIDER_*` constants, and `llmrouter.Providers()` lists every built-in prefix.
+Prefix strings are exported as `llmrouter.PROVIDER_*` constants, and `llmrouter.Providers()` lists every built-in chat prefix (`typesafe` is excluded).
 
 ### Reasoning levels
 
@@ -401,6 +437,8 @@ Prefix strings are exported as `llmrouter.PROVIDER_*` constants, and `llmrouter.
 | `ClampReasoning` | `func(r, lo, hi Reasoning, provider, model string) Reasoning` | Emits a debug log whenever it clamps |
 | `OpenAIEffortRange` | `func(model string) (low, high Reasoning)` | Effort range per OpenAI model generation |
 
+`claude` ranges by model ID: `-4-5` / `-4-1` use a thinking budget up to `high` and send `none` as no thinking with `temperature` 0.2; `opus-5` starts at `low`, so `none` clamps to `low`; `sonnet-5` sends `none` as `thinking: {"type": "between_tools"}`; `fable` / `mythos` omit `thinking`; every other ID sends `thinking: {"type": "disabled"}`.
+
 ### Modes
 
 | Symbol | Signature | Description |
@@ -414,9 +452,9 @@ Prefix strings are exported as `llmrouter.PROVIDER_*` constants, and `llmrouter.
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` | Multiple flags intersect |
+| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly, DecisionOnly bool }` | Multiple flags intersect; `DecisionOnly` is honored by `openrouter` only |
 | `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` | Marker-based classification; `IsImageModel` excludes video models |
-| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | Used by the `openai`, `gemini`, `grok`, and `grok-oauth` listings |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` | Used by the `openai`, `gemini`, `grok`, and `grok-oauth` listings; ignores `DecisionOnly` |
 | `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` | Element type returned by `ModelInfos` |
 
 Flag support differs per provider; an unsupported flag is ignored rather than rejected:
@@ -424,7 +462,7 @@ Flag support differs per provider; an unsupported flag is ignored rather than re
 | Provider | `TextOnly` | `STTOnly` | `TTSOnly` | `ImageOnly` | Source |
 |---|---|---|---|---|---|
 | `openai`, `gemini`, `grok`, `grok-oauth` | ✓ | ✓ | ✓ | ✓ | model-ID markers |
-| `openrouter` | ✓ | ✓ | ✓ | ✓ | `/api/v1/images/models`, `/api/v1/models?output_modalities=speech` / `transcription` |
+| `openrouter` | ✓ | ✓ | ✓ | ✓ | `/api/v1/images/models`, `/api/v1/models?output_modalities=speech` / `transcription` / `decisions` (`DecisionOnly`) |
 | `cloudflare` | ✓ | ✓ | ✓ | — | Workers AI task name |
 | `claude`, `copilot`, `deepseek`, `mistral`, `nvidia`, `ollama-cloud`, `codex` | ✓ | — | — | — | model-ID markers |
 
@@ -512,6 +550,55 @@ type TTSOptions struct{ Voice, Format string } // wav (default) / mp3 / opus / a
 | `WrapPCM16` | `func(pcm []byte, rate int) []byte` | Prepends a 44-byte WAV header |
 | `DataURI` | `func(mime, b64 string) string` | Defaults to `image/png` when mime is empty |
 
+### Decisions
+
+```go
+type DecisionAgent interface {
+	Decide(ctx context.Context, state any, questions map[string]DecisionQuestion) (*DecisionResult, error)
+}
+
+type DecisionQuestion struct {
+	Type         DecisionType // DecisionNoul / DecisionChoice / DecisionScore
+	Instructions any
+	Criteria     any
+}
+
+type DecisionAnswer struct {
+	Type          DecisionType
+	Noul          float64
+	Choice        string
+	Score         float64
+	Confidence    *float64
+	Probabilities map[string]float64
+	Legend        map[string]any
+}
+
+type DecisionResult struct {
+	Model   string
+	Answers map[string]DecisionAnswer
+	Usage   Usage
+}
+```
+
+| `Type` | `Criteria` | Answer |
+|---|---|---|
+| `DecisionNoul` | optional `{"true": ..., "false": ...}` | `Noul` in 0–1 |
+| `DecisionChoice` | required map of option → description | `Choice`, `Confidence`, `Probabilities` per option |
+| `DecisionScore` | required ordered slice of levels | `Score` (probability-weighted index), `Confidence`, `Legend`, `Probabilities` per level |
+
+| Provider | Package | Endpoint | `Models` |
+|---|---|---|---|
+| `typesafe@` | `core/typesafe` | `POST https://api.typesafe.ai/v1/systemone` | `typesafe.Models(ctx, llmrouter.Config)`, no filter |
+| `openrouter@` | `core/openRouter` | `POST https://openrouter.ai/api/alpha/decisions` | `openrouter.Models` with `ModelFilter{DecisionOnly: true}` |
+
+| Symbol | Signature | Description |
+|---|---|---|
+| `DecisionBody` | `func(model string, state any, questions map[string]DecisionQuestion) (map[string]any, error)` | Shared request builder; returns `[Invalid] decision...` for an empty model, nil `state`, empty `questions`, or an unknown `Type` before any network call |
+| `DecisionResponse` / `(DecisionResponse).Result` | `struct` / `func(label string) (*DecisionResult, error)` | Shared wire decoder; an empty `answers` returns `[Upstream] <label>: response has no answers` |
+| `typesafe.New` | `func(config llmrouter.Config) (*Agent, error)` | Decision-only agent with `Name` and `Decide`; an empty `APIKey` returns `[Denied]` |
+
+`Usage.CacheRead` is filled from OpenRouter's `input_tokens_details.cached_tokens`; TypeSafe reports no cache tokens.
+
 ### OAuth
 
 `core/oauth/copilot`, `core/oauth/codex`, and `core/oauth/grok` expose the same shape:
@@ -558,6 +645,7 @@ Every package exposes `Usage(ctx context.Context, config llmrouter.Config) (llmr
 | `WithCacheTTL` / `CacheTTL` | `func(ctx, ttl string) context.Context` / `func(ctx) string` | Requests a prompt-cache TTL; only `claude-code` reads it (`"1h"`, otherwise 5 minutes) |
 | `PROVIDER_*` / `Providers` | `const string` / `func() []string` | Built-in provider prefixes |
 | `claudeCode.CheckBinary` / `claudeCode.Is` | `func() error` / `func(name string) bool` | Checks the `claude` CLI is on `PATH`; reports whether a name uses the `claude-code` prefix |
+| `HTTPErrorLabel` | `func(code int, err error) string` | Error label for an HTTP failure: `Canceled` / `Timeout` from the context error, `Unavailable` with no response, then by status (`Invalid`, `Denied`, `Limit`, `Not found`, `Conflict`, `Timeout`, `Unavailable`), `Upstream` otherwise |
 | `TruncateFrame` | `func(data string) string` | Caps an SSE frame in error messages at 512 bytes |
 | `summary.VoiceReply` | `func(ctx, text string) (string, error)` | Compresses text over 320 characters into a speakable reply via Gemini, using `GEMINI_API_KEY` from the keychain |
 

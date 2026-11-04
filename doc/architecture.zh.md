@@ -1,6 +1,6 @@
 # go-llm-router - 架構
 
-最後更新：2026-10-27
+最後更新：2026-11-05
 
 > 返回 [README](./README.zh.md)
 
@@ -13,6 +13,7 @@
 - [模組：串流](#模組串流)
 - [模組：oauth](#模組oauth)
 - [模組：多模態](#模組多模態)
+- [模組：決策問答](#模組決策問答)
 - [模組：模型清單與篩選](#模組模型清單與篩選)
 - [資料流](#資料流)
 - [狀態機](#狀態機)
@@ -22,6 +23,9 @@
 ```mermaid
 graph TB
     App[呼叫端] --> Router[router.New]
+    App --> DecisionRouter[router.NewDecision]
+    DecisionRouter --> DecisionAgents[typesafe / openrouter 決策 agent]
+    DecisionAgents --> Core
     Router --> Registry[newFn 前綴表]
     Registry --> KeyAgents[金鑰型 Agent]
     Registry --> OAuthAgents[OAuth 型 Agent]
@@ -40,6 +44,7 @@ graph TB
     Core --> Stream[串流事件正規化]
     Core --> Usage[用量正規化]
     Core --> Media[圖片 / 語音介面]
+    Core --> Decision[決策介面]
     Core --> HTTP[go-pkg http]
 ```
 
@@ -62,12 +67,14 @@ graph TB
         Prefix[prefix.go<br/>PROVIDER_* / Providers]
         Image[image.go<br/>ImageAgent / ImagePixelSize]
         Audio[audio.go<br/>STTAgent / TTSAgent / WrapPCM16]
+        DecisionFile[decision.go<br/>DecisionAgent / DecisionBody / HTTPErrorLabel]
         Session[session.go<br/>WithSessionID / SessionUUID]
     end
     Stream --> SSE
     Stream --> Idle
     Image --> Type
     Audio --> Type
+    DecisionFile --> Type
     Reasoning --> Type
 ```
 
@@ -81,6 +88,7 @@ graph TB
 | `idle.go` | 串流監控：閒置與無內容探測、重複輸出偵測、容忍零星無法解析的 frame |
 | `prefix.go` | `PROVIDER_*` 前綴常數與 `Providers()` |
 | `image.go` / `audio.go` | 多模態選用介面與尺寸／取樣率／WAV 封裝等純函式 |
+| `decision.go` | `DecisionAgent`、題目與答案型別、共用的請求組裝與回應解析，以及 HTTP 錯誤標示 |
 | `session.go` | 以 context 傳遞 session ID，雜湊為 UUID 後由供應商作為前綴快取鍵或 affinity header 送出，並傳遞指定的快取 TTL |
 
 ## 模組：router
@@ -99,6 +107,8 @@ graph TB
 ```
 
 前綴另支援方括號實例名（`compat[lmstudio]@model`），`compatPrefix` 取出實例名後成為 Agent `Name()` 的前綴，讓同一個 compat 轉接層可同時代表多個端點。
+
+`router.NewDecision` 是第二個、範圍更小的工廠，專供決策 agent：只接受 `typesafe@` 與 `openrouter@`，回傳 `llmrouter.DecisionAgent`。
 
 ## 模組：供應商轉接層
 
@@ -127,6 +137,7 @@ graph TB
 | Anthropic | `claude` | Messages API，thinking 預算換算 |
 | Google | `gemini` | `:generateContent`，工具以 `parametersJsonSchema` 傳送原始 JSON Schema，並使用 `cachedContents` |
 | xAI | `grok`、`grokOauth` | Responses API（共用 `core/xai` 的 body 組裝與 SSE 解析）+ 圖片端點 |
+| TypeSafe | `typesafe` | 僅決策的 `/v1/systemone`，沒有對話路徑 |
 | OAuth 代理 | `copilot`、`openaiCodex` | 廠商內部 Responses 端點，需 session 權杖 |
 | Claude Code CLI | `claudeCode` | 不走 HTTP：以 stream-json 驅動本機 `claude -p` 行程，工具改用文字 `<tool_call>` 協定，每個 session 保留一個行程（閒置 15 分鐘回收） |
 
@@ -191,6 +202,24 @@ graph TB
 
 圖片與語音模型都由 agent 模型決定，唯 `codex` 由後端以對話模型生成。
 
+## 模組：決策問答
+
+```mermaid
+graph TB
+    NewDecision[router.NewDecision] --> TypeSafeAgent[typesafe.Agent<br/>僅決策]
+    NewDecision --> OpenRouterAgent[openrouter.Agent]
+    NewRouter[router.New] --> OpenRouterAgent
+    TypeSafeAgent --> Body[llmrouter.DecisionBody]
+    OpenRouterAgent --> Body
+    Body --> TypeSafeAPI[typesafe<br/>/v1/systemone]
+    Body --> OpenRouterAPI[openrouter<br/>/api/alpha/decisions]
+    TypeSafeAPI --> Decode[DecisionResponse.Result]
+    OpenRouterAPI --> Decode
+    Decode --> Result[llmrouter.DecisionResult]
+```
+
+兩個上游使用相同的請求與回應格式，因此 adapter 共用 `core/decision.go` 的組裝與解析函式，只有端點與 header 不同。`core/typesafe` 實作 `DecisionAgent` 但沒有 `Send`，所以另設工廠，不放進 `router.New` 的前綴表。上游錯誤由 `HTTPErrorLabel` 標示類別，請求驗證在 `DecisionBody` 中於送出前完成。
+
 ## 模組：模型清單與篩選
 
 ```mermaid
@@ -199,13 +228,13 @@ graph LR
     Models --> Catalog[供應商目錄]
     Models --> TextOnlyOnly[僅 TextOnly<br/>llmrouter.IsTextModel]
     Markers --> MarkerProviders[openai / gemini / grok / grok-oauth<br/>四旗標皆支援，ImageOnly 排除 video]
-    Catalog --> OpenRouterCat[openrouter<br/>/images/models、?output_modalities=speech / transcription]
+    Catalog --> OpenRouterCat[openrouter<br/>/images/models、?output_modalities=speech / transcription / decisions]
     Catalog --> CloudflareCat[cloudflare<br/>Workers AI task 名稱]
     TextOnlyOnly --> TextProviders[claude / copilot / deepseek / mistral / nvidia / ollama-cloud / codex]
     Models --> Infos[ModelInfos<br/>thinking / efforts / endpoints]
 ```
 
-三種策略並存。`openai`、`gemini`、`grok`、`grok-oauth` 以 `MatchModelFilter` 判斷模型 ID，四個旗標皆支援。`openrouter` 讀自家目錄：`ImageOnly` 取 `/api/v1/images/models`（即 `/api/v1/images` 實際接受的目錄），`TTSOnly` / `STTOnly` 取 `/api/v1/models?output_modalities=speech` / `transcription`。`cloudflare` 以 Workers AI 的 task 名稱（`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`）篩選，不支援 `ImageOnly`。其餘供應商只支援 `TextOnly`。
+三種策略並存。`openai`、`gemini`、`grok`、`grok-oauth` 以 `MatchModelFilter` 判斷模型 ID，四個旗標皆支援。`openrouter` 讀自家目錄：`ImageOnly` 取 `/api/v1/images/models`（即 `/api/v1/images` 實際接受的目錄），`TTSOnly` / `STTOnly` / `DecisionOnly` 取 `/api/v1/models?output_modalities=speech` / `transcription` / `decisions`。`cloudflare` 以 Workers AI 的 task 名稱（`Text Generation` / `Automatic Speech Recognition` / `Text-to-Speech`）篩選，不支援 `ImageOnly`。其餘供應商只支援 `TextOnly`；`typesafe.Models` 不接受篩選，只列出決策模型。
 
 ## 資料流
 

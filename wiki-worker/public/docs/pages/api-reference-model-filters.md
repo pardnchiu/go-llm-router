@@ -6,10 +6,10 @@ Types and classifier functions behind `Models` filtering.
 
 | Symbol | Signature |
 |---|---|
-| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly bool }` |
+| `ModelFilter` | `struct{ TextOnly, STTOnly, TTSOnly, ImageOnly, DecisionOnly bool }` |
 | `ModelInfo` | `struct{ ID string; Thinking bool; Efforts, Endpoints []string }` |
 | `IsTextModel` / `IsSTTModel` / `IsTTSModel` / `IsImageModel` | `func(id string) bool` |
-| `MatchModelFilter` | `func(id string, filter ModelFilter) bool` |
+| `MatchModelFilter` | `func(id string, filter ModelFilter) bool`; checks the four marker flags and ignores `DecisionOnly` |
 
 ## Listing response types
 

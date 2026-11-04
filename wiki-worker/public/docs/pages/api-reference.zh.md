@@ -29,6 +29,10 @@ type STTAgent interface {
 type TTSAgent interface {
 	Speak(ctx context.Context, text string, opts TTSOptions) (*TTSResult, error)
 }
+
+type DecisionAgent interface {
+	Decide(ctx context.Context, state any, questions map[string]DecisionQuestion) (*DecisionResult, error)
+}
 ```
 
 ## router
@@ -37,10 +41,11 @@ type TTSAgent interface {
 |---|---|---|
 | `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string; EnableClaude bool; StateDir string }` | `Name` 為 `provider@model`；`EnableClaude`／`StateDir` 僅用於 `claude-code@` |
 | `router.New` | `func(config Config) (llmrouter.Agent, error)` | 依前綴建構 Agent；未知前綴且含 `@` 時改寫為 `compat[<prefix>]@<model>` |
+| `router.NewDecision` | `func(config Config) (llmrouter.DecisionAgent, error)` | 以 `Name` 與 `APIKey` 建構 `typesafe@` 或 `openrouter@` 的決策 agent；其他前綴回傳 `[Invalid] router.NewDecision: ...` |
 
 ## 供應商名稱
 
-`core` 為每個供應商前綴宣告一個常數，不含結尾的 `@`。以 `llmrouter.PROVIDER_GEMINI + "@" + model` 組出名稱；`Providers()` 回傳 `compat` 以外的所有前綴。
+`core` 為每個供應商前綴宣告一個常數，不含結尾的 `@`。以 `llmrouter.PROVIDER_GEMINI + "@" + model` 組出名稱；`Providers()` 回傳 `compat` 以外的所有對話前綴，不含 `typesafe`。
 
 | 常數 | 值 |
 |---|---|
@@ -59,10 +64,11 @@ type TTSAgent interface {
 | `PROVIDER_COMPAT` | `compat` |
 | `PROVIDER_COPILOT` | `copilot` |
 | `PROVIDER_CODEX` | `codex` |
+| `PROVIDER_TYPESAFE` | `typesafe`（僅決策，經 `router.NewDecision`） |
 
 ## 供應商套件
 
-每個供應商套件皆提供 `New(llmrouter.Config) (*Agent, error)`、`(*Agent).Name()` 與 `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`。`core/compat` 沒有 `Models`，`core/claudeCode.Models(ctx, llmrouter.Config)` 不接受篩選條件。
+每個供應商套件皆提供 `New(llmrouter.Config) (*Agent, error)`、`(*Agent).Name()` 與 `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`。`core/compat` 沒有 `Models`；`core/claudeCode.Models(ctx, llmrouter.Config)` 與 `core/typesafe.Models(ctx, llmrouter.Config)` 不接受篩選條件。`core/typesafe` 只做決策：其 `Agent` 有 `Name` 與 `Decide`，沒有 `Send`。
 
 | 套件 | 前綴 | 額外匯出 |
 |---|---|---|
@@ -76,11 +82,12 @@ type TTSAgent interface {
 | `core/mistral` | `mistral@` | `ModelInfos` |
 | `core/nvidia` | `nvidia@` | — |
 | `core/ollamaCloud` | `ollama-cloud@` | — |
-| `core/openRouter` | `openrouter@` | `Usage` |
+| `core/openRouter` | `openrouter@` | `Usage`；`(*Agent).Decide` |
 | `core/cloudflare` | `cloudflare@` | — |
 | `core/compat` | `compat@` / `compat[name]@` | — |
 | `core/copilot` | `copilot@` | `Usage`、`ModelInfos` |
 | `core/openaiCodex` | `codex@` | `Usage` |
+| `core/typesafe` | `typesafe@`（經 `router.NewDecision`） | `(*Agent).Decide` |
 
 ## 共用傳輸輔助
 

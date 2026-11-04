@@ -3,10 +3,10 @@ const crypto = require("crypto");
 const path = require("path");
 const { Parse } = require("@pardnchiu/nanomd");
 
-const TEMPLATE_VERSION = "7.2.1"; // wiki-generate template version; see scripts/templates/CHANGELOG.md
+const TEMPLATE_VERSION = "7.3.0"; // wiki-generate template version; see scripts/templates/CHANGELOG.md
 
 // === Site config — filled in by wiki-generate when this template is copied into a project ===
-const SITE_NAME = "pardnchiu/go-llm-router";
+const SITE_NAME = "go-llm-router";
 const DOMAIN = "https://go-llm-router.pardn.io";
 const REPO = "pardnchiu/go-llm-router"; // owner/repo
 const AUTHOR_NAME = "邱敬幃 Pardn Chiu";
@@ -169,6 +169,7 @@ const NAV = [
   { section: "Media and Models", items: [
     { slug: "core-concepts-images", label: "Image Generation" },
     { slug: "core-concepts-speech", label: "Speech Output" },
+    { slug: "core-concepts-decisions", label: "Decisions" },
     { slug: "core-concepts-model-filters", label: "Model Filters" },
   ]},
   { section: "Claude Code", items: [
@@ -190,6 +191,7 @@ const NAV = [
     { slug: "api-reference-streaming", label: "Stream Symbols" },
     { slug: "api-reference-images", label: "Image Types" },
     { slug: "api-reference-audio", label: "Audio Types" },
+    { slug: "api-reference-decisions", label: "Decision Types" },
     { slug: "api-reference-oauth", label: "OAuth Functions" },
     { slug: "api-reference-helpers", label: "Helpers" },
     { slug: "api-reference-removed", label: "Removed APIs" },
@@ -221,6 +223,7 @@ const NAV_ZH_LABEL = {
   "core-concepts-sessions": "對話快取鍵",
   "core-concepts-images": "圖片生成",
   "core-concepts-speech": "語音輸出",
+  "core-concepts-decisions": "決策問答",
   "core-concepts-model-filters": "模型篩選",
   "core-concepts-claude-code": "Claude Code CLI",
   "core-concepts-claude-code-tools": "Claude Code 工具呼叫",
@@ -236,6 +239,7 @@ const NAV_ZH_LABEL = {
   "api-reference-streaming": "串流符號",
   "api-reference-images": "圖片型別",
   "api-reference-audio": "語音型別",
+  "api-reference-decisions": "決策型別",
   "api-reference-oauth": "OAuth 函式",
   "api-reference-helpers": "輔助函式",
   "api-reference-removed": "已移除 API",
@@ -386,9 +390,9 @@ function renderPage(slug, title, description, keywords, sidebar, content, toc, l
   } else {
     fullTitle = isZh
       ? `${title}｜${SITE_NAME} 文件`
-      : `${title} - ${SITE_NAME} Docs`;
+      : `${title} | ${SITE_NAME} Docs`;
     if (titleTooLong(fullTitle)) {
-      fullTitle = isZh ? `${title}｜${SITE_NAME}` : `${title} - ${SITE_NAME}`;
+      fullTitle = isZh ? `${title}｜${SITE_NAME}` : `${title} | ${SITE_NAME}`;
     }
   }
 
@@ -809,7 +813,7 @@ const contentUsage = aiprefPairs.map(([k, v]) => `${k}=${v}`).join(", ");
 const contentSignal = signalPairs.map(([k, v]) => `${k}=${v === "y" ? "yes" : "no"}`).join(", ");
 const robots = `User-agent: *
 Allow: /
-${contentUsage ? `Content-Usage: ${contentUsage}\n` : ""}${contentSignal ? `Content-signal: ${contentSignal}\n` : ""}
+${contentUsage ? `Content-Usage: ${contentUsage}\n` : ""}${contentSignal ? `Content-signal: ${contentSignal}\n` : ""}${AI_TRAIN === "y" || AI_TRAIN === "n" ? `\nUser-Agent: __usage_ai-training\n${AI_TRAIN === "y" ? "Allow" : "Disallow"}: /\n` : ""}
 Sitemap: ${DOMAIN}/sitemap.xml
 `;
 fs.writeFileSync(path.join(__dirname, "public/robots.txt"), robots);

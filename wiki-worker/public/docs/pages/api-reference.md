@@ -29,6 +29,10 @@ type STTAgent interface {
 type TTSAgent interface {
 	Speak(ctx context.Context, text string, opts TTSOptions) (*TTSResult, error)
 }
+
+type DecisionAgent interface {
+	Decide(ctx context.Context, state any, questions map[string]DecisionQuestion) (*DecisionResult, error)
+}
 ```
 
 ## router
@@ -37,10 +41,11 @@ type TTSAgent interface {
 |---|---|---|
 | `router.Config` | `struct{ Name, APIKey string; Token any; BaseURL, AccountID, GatewayID string; EnableClaude bool; StateDir string }` | `Name` is `provider@model`; `EnableClaude` / `StateDir` apply to `claude-code@` only |
 | `router.New` | `func(config Config) (llmrouter.Agent, error)` | Builds the agent for the prefix; an unknown prefix containing `@` becomes `compat[<prefix>]@<model>` |
+| `router.NewDecision` | `func(config Config) (llmrouter.DecisionAgent, error)` | Builds a decision agent for `typesafe@` or `openrouter@` from `Name` and `APIKey`; any other prefix returns `[Invalid] router.NewDecision: ...` |
 
 ## Provider names
 
-`core` declares one constant per provider prefix, without the trailing `@`. Build a name as `llmrouter.PROVIDER_GEMINI + "@" + model`; `Providers()` returns every prefix except `compat`.
+`core` declares one constant per provider prefix, without the trailing `@`. Build a name as `llmrouter.PROVIDER_GEMINI + "@" + model`; `Providers()` returns every chat prefix except `compat`, so `typesafe` is not in it.
 
 | Constant | Value |
 |---|---|
@@ -59,10 +64,11 @@ type TTSAgent interface {
 | `PROVIDER_COMPAT` | `compat` |
 | `PROVIDER_COPILOT` | `copilot` |
 | `PROVIDER_CODEX` | `codex` |
+| `PROVIDER_TYPESAFE` | `typesafe` (decisions only, through `router.NewDecision`) |
 
 ## Provider packages
 
-Every provider package exposes `New(llmrouter.Config) (*Agent, error)`, `(*Agent).Name()`, and `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`. `core/compat` has no `Models`, and `core/claudeCode.Models(ctx, llmrouter.Config)` takes no filter.
+Every provider package exposes `New(llmrouter.Config) (*Agent, error)`, `(*Agent).Name()`, and `Models(ctx, llmrouter.Config, llmrouter.ModelFilter) ([]string, error)`. `core/compat` has no `Models`; `core/claudeCode.Models(ctx, llmrouter.Config)` and `core/typesafe.Models(ctx, llmrouter.Config)` take no filter. `core/typesafe` is decision-only: its `Agent` has `Name` and `Decide` but no `Send`.
 
 | Package | Prefix | Additional exports |
 |---|---|---|
@@ -76,11 +82,12 @@ Every provider package exposes `New(llmrouter.Config) (*Agent, error)`, `(*Agent
 | `core/mistral` | `mistral@` | `ModelInfos` |
 | `core/nvidia` | `nvidia@` | — |
 | `core/ollamaCloud` | `ollama-cloud@` | — |
-| `core/openRouter` | `openrouter@` | `Usage` |
+| `core/openRouter` | `openrouter@` | `Usage`; `(*Agent).Decide` |
 | `core/cloudflare` | `cloudflare@` | — |
 | `core/compat` | `compat@` / `compat[name]@` | — |
 | `core/copilot` | `copilot@` | `Usage`, `ModelInfos` |
 | `core/openaiCodex` | `codex@` | `Usage` |
+| `core/typesafe` | `typesafe@` (via `router.NewDecision`) | `(*Agent).Decide` |
 
 ## Shared wire helpers
 

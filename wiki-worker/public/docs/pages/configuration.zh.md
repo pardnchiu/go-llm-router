@@ -38,6 +38,7 @@ type Config struct {
 | `copilot@` | `Token`（`*llmrouter.CopilotToken`） | 另需換取短期 session token |
 | `codex@` | `Token`（`*llmrouter.CodexToken`） | 帶 `ChatGPT-Account-Id` header |
 | `grok-oauth@` | `Token`（`*llmrouter.GrokToken`） | — |
+| `typesafe@` | `APIKey` | 以 `router.NewDecision` 建立，不走 `router.New`；key 由 `console.typesafe.ai/keys` 取得 |
 
 ## 相關頁面
 
