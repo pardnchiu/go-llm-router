@@ -54,6 +54,9 @@ func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.Model
 		if filter.TextOnly && !llmrouter.IsTextModel(id) {
 			continue
 		}
+		if !filter.DecisionOnly && strings.HasPrefix(id, "typesafe/") {
+			continue
+		}
 		ids = append(ids, id)
 	}
 	return ids, nil
