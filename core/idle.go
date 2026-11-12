@@ -25,6 +25,7 @@ const (
 type idleBody struct {
 	io.ReadCloser
 	label       string
+	probeEvery  time.Duration
 	reads       atomic.Int64
 	frames      atomic.Int64
 	content     atomic.Int64
@@ -45,7 +46,7 @@ type idleBody struct {
 }
 
 func WatchIdle(body io.ReadCloser, label string) io.ReadCloser {
-	b := &idleBody{ReadCloser: body, label: label}
+	b := &idleBody{ReadCloser: body, label: label, probeEvery: StreamProbeInterval}
 	b.mu.Lock()
 	b.timer = time.AfterFunc(StreamProbeInterval, b.probe)
 	b.mu.Unlock()
@@ -64,7 +65,7 @@ func (b *idleBody) probe() {
 	b.seenReads, b.seenFrames, b.seenContent = reads, frames, content
 	if (gotData && !contentless) || !b.inRead.Load() {
 		b.failures = 0
-		b.timer.Reset(StreamProbeInterval)
+		b.timer.Reset(b.probeEvery)
 		return
 	}
 	b.failures++
@@ -86,7 +87,9 @@ func (b *idleBody) Read(p []byte) (int, error) {
 		return n, fmt.Errorf("[Timeout] %s stream: degenerate repetition in last %d bytes: %q: %w", b.label, StreamRepeatWindow, bytes.ToValidUTF8(quote, nil), context.DeadlineExceeded)
 	}
 	if b.fired.Load() {
-		silent := StreamProbeInterval + StreamRecheckInterval*(StreamMaxProbeFailures-1)
+		b.mu.Lock()
+		silent := b.probeEvery + StreamRecheckInterval*(StreamMaxProbeFailures-1)
+		b.mu.Unlock()
 		if b.contentless {
 			return n, fmt.Errorf("[Timeout] %s stream: data without parsable content for %s: %w", b.label, silent, context.DeadlineExceeded)
 		}
@@ -100,6 +103,20 @@ func (b *idleBody) Read(p []byte) (int, error) {
 		b.frames.Add(1)
 	}
 	return n, err
+}
+
+func SetIdleWindow(body io.Reader, probe time.Duration) {
+	b, ok := body.(*idleBody)
+	if !ok || probe <= 0 {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return
+	}
+	b.probeEvery = probe
+	b.timer.Reset(probe)
 }
 
 func TouchIdle(body io.Reader, deltas ...string) {
