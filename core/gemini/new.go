@@ -8,12 +8,18 @@ import (
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
+const (
+	pingInterval = llmrouter.StreamProbeInterval
+	pingTimeout  = llmrouter.StreamRecheckInterval * (llmrouter.StreamMaxProbeFailures - 1)
+)
+
 type Agent struct {
 	httpClient *http.Client
 	model      string
 	apiKey     string
 	cacheMu    sync.Mutex
 	cacheStore map[string]*geminiCacheEntry
+	cacheMode  cacheSupport
 	thinking   *bool
 }
 
@@ -23,7 +29,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 	}
 
 	return &Agent{
-		httpClient: llmrouter.NewHTTPClient(),
+		httpClient: newHTTPClient(),
 		model:      config.Model,
 		apiKey:     config.APIKey,
 		cacheStore: make(map[string]*geminiCacheEntry),
@@ -33,4 +39,16 @@ func New(config llmrouter.Config) (*Agent, error) {
 
 func (a *Agent) Name() string {
 	return llmrouter.PROVIDER_GEMINI + "@" + a.model
+}
+
+func newHTTPClient() *http.Client {
+	client := llmrouter.NewHTTPClient()
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ForceAttemptHTTP2 = true
+	transport.HTTP2 = &http.HTTP2Config{
+		SendPingTimeout: pingInterval,
+		PingTimeout:     pingTimeout,
+	}
+	client.Transport = transport
+	return client
 }

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"slices"
 	"time"
 
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
@@ -19,6 +21,18 @@ const (
 	cacheExpirySafety   = 60 * time.Second
 	cacheSweepThreshold = 64
 )
+
+type cacheSupport int8
+
+const (
+	cacheSupportUnknown cacheSupport = iota
+	cacheSupported
+	cacheUnsupported
+)
+
+type modelMethods struct {
+	SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
+}
 
 type geminiCacheEntry struct {
 	name       string
@@ -59,6 +73,10 @@ func (a *Agent) applyCache(ctx context.Context, systemPrompt string, messages []
 		return "", messages
 	}
 
+	if !a.cacheAllowed(ctx) {
+		return "", messages
+	}
+
 	created, err := a.createCache(ctx, candidate, systemPrompt, tools)
 	if err != nil {
 		slog.Warn("gemini cache create failed",
@@ -79,6 +97,29 @@ func (a *Agent) applyCache(ctx context.Context, systemPrompt string, messages []
 	a.cacheMu.Unlock()
 
 	return created.name, messages[created.prefixLen:]
+}
+
+func (a *Agent) cacheAllowed(ctx context.Context) bool {
+	a.cacheMu.Lock()
+	mode := a.cacheMode
+	a.cacheMu.Unlock()
+	if mode != cacheSupportUnknown {
+		return mode == cacheSupported
+	}
+
+	data, status, err := go_pkg_http.GET[modelMethods](ctx, a.httpClient, baseAPI+a.model, a.headers())
+	if err != nil || status != http.StatusOK {
+		return true
+	}
+
+	mode = cacheUnsupported
+	if slices.Contains(data.SupportedGenerationMethods, "createCachedContent") {
+		mode = cacheSupported
+	}
+	a.cacheMu.Lock()
+	a.cacheMode = mode
+	a.cacheMu.Unlock()
+	return mode == cacheSupported
 }
 
 func (a *Agent) createCache(ctx context.Context, messages []Content, systemPrompt string, tools []map[string]any) (*geminiCacheEntry, error) {

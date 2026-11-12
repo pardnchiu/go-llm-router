@@ -5,11 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
-const label = "gemini"
+const (
+	label      = "gemini"
+	idleWindow = 10 * time.Minute
+)
 
 func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, _ llmrouter.Mode) (<-chan llmrouter.StreamEvent, error) {
 	apiURL := fmt.Sprintf("%s%s:streamGenerateContent?alt=sse", baseAPI, a.model)
@@ -18,6 +22,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 	if err != nil {
 		return nil, err
 	}
+	llmrouter.SetIdleWindow(resp.Body, idleWindow)
 
 	events := make(chan llmrouter.StreamEvent)
 	go func() {
