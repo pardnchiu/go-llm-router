@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 
@@ -19,7 +18,7 @@ func Models(ctx context.Context, config llmrouter.Config) ([]string, error) {
 		return nil, fmt.Errorf("[Denied] typesafe.Models: APIKey is required")
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	data, status, err := go_pkg_http.GET[struct {
 		Models []struct {
 			Name string `json:"name"`

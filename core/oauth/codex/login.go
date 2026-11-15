@@ -72,7 +72,7 @@ func exchangeCode(ctx context.Context, code, verifier, redirect string) (*llmrou
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient().Do(req)
+	resp, err := llmrouter.NewStreamHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("httpClient.Do: %w", err)
 	}
@@ -88,7 +88,7 @@ func exchangeCode(ctx context.Context, code, verifier, redirect string) (*llmrou
 
 	expiry := time.Now().Add(time.Duration(raw.ExpiresIn) * time.Second)
 	if raw.ExpiresIn == 0 {
-		expiry = time.Now().Add(3600 * time.Second)
+		expiry = time.Now().Add(llmrouter.ExpiryToken)
 	}
 
 	token := &llmrouter.CodexToken{
@@ -154,8 +154,8 @@ func startCallbackServer(expectedState string, codeCh chan<- string, errCh chan<
 
 	srv := &http.Server{
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  llmrouter.TimeoutHTTPShort,
+		WriteTimeout: llmrouter.TimeoutHTTPShort,
 	}
 	go srv.Serve(listener)
 	return srv, nil

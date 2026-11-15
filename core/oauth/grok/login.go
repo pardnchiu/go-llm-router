@@ -11,10 +11,60 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
+
+var pending struct {
+	mu    sync.Mutex
+	state string
+	codes chan string
+}
+
+func Submit(input string) error {
+	code, state, err := parsePasted(input)
+	if err != nil {
+		return err
+	}
+
+	pending.mu.Lock()
+	defer pending.mu.Unlock()
+	if pending.codes == nil {
+		return fmt.Errorf("no grok login is waiting for a code")
+	}
+	if state != "" && state != pending.state {
+		return fmt.Errorf("state mismatch: the pasted URL belongs to another login")
+	}
+	select {
+	case pending.codes <- code:
+		return nil
+	default:
+		return fmt.Errorf("a code was already submitted for this login")
+	}
+}
+
+func parsePasted(input string) (code, state string, err error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", "", fmt.Errorf("empty input")
+	}
+	if u, perr := url.Parse(input); perr == nil && u.Scheme != "" {
+		q := u.Query()
+		if e := q.Get("error"); e != "" {
+			return "", "", fmt.Errorf("%s: %s", e, q.Get("error_description"))
+		}
+		if q.Get("code") == "" {
+			return "", "", fmt.Errorf("URL has no code parameter")
+		}
+		return q.Get("code"), q.Get("state"), nil
+	}
+	if strings.ContainsAny(input, " \t\r\n") {
+		return "", "", fmt.Errorf("not an authorization code or callback URL")
+	}
+	return input, "", nil
+}
 
 func LoginWithCallback(ctx context.Context, onURL func(string)) (*llmrouter.GrokToken, error) {
 	b := make([]byte, 32)
@@ -45,6 +95,18 @@ func LoginWithCallback(ctx context.Context, onURL func(string)) (*llmrouter.Grok
 	}
 	defer srv.Shutdown(context.Background())
 
+	pasted := make(chan string, 1)
+	pending.mu.Lock()
+	pending.state, pending.codes = state, pasted
+	pending.mu.Unlock()
+	defer func() {
+		pending.mu.Lock()
+		if pending.codes == pasted {
+			pending.state, pending.codes = "", nil
+		}
+		pending.mu.Unlock()
+	}()
+
 	authLink := buildAuthURL(challenge, state, nonce)
 
 	if onURL != nil {
@@ -57,6 +119,8 @@ func LoginWithCallback(ctx context.Context, onURL func(string)) (*llmrouter.Grok
 	case err := <-errCh:
 		return nil, fmt.Errorf("callback: %w", err)
 	case code := <-codeCh:
+		return exchangeCode(ctx, code, verifier, challenge)
+	case code := <-pasted:
 		return exchangeCode(ctx, code, verifier, challenge)
 	}
 }
@@ -79,7 +143,7 @@ func exchangeCode(ctx context.Context, code, verifier, challenge string) (*llmro
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient().Do(req)
+	resp, err := llmrouter.NewStreamHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("httpClient.Do: %w", err)
 	}
@@ -95,7 +159,7 @@ func exchangeCode(ctx context.Context, code, verifier, challenge string) (*llmro
 
 	expiry := time.Now().Add(time.Duration(raw.ExpiresIn) * time.Second)
 	if raw.ExpiresIn == 0 {
-		expiry = time.Now().Add(3600 * time.Second)
+		expiry = time.Now().Add(llmrouter.ExpiryToken)
 	}
 
 	token := &llmrouter.GrokToken{
@@ -180,8 +244,8 @@ func startCallbackServer(expectedState string, codeCh chan<- string, errCh chan<
 
 	srv := &http.Server{
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  llmrouter.TimeoutHTTPShort,
+		WriteTimeout: llmrouter.TimeoutHTTPShort,
 	}
 	go srv.Serve(listener)
 	return srv, nil

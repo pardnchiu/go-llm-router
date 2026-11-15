@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
@@ -20,7 +19,7 @@ func Models(ctx context.Context, config llmrouter.Config, filter llmrouter.Model
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	data, status, err := go_pkg_http.GET[llmrouter.Models](ctx, client, modelsAPI, map[string]string{
 		"Authorization": "Bearer " + config.APIKey,
 	})

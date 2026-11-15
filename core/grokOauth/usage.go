@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
@@ -38,7 +37,7 @@ func Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaini
 	req.Header.Set("x-grok-client-version", xaiClientVersion)
 	req.Header.Set("x-grok-client-mode", xaiClientModeHeader)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	resp, err := client.Do(req)
 	if err != nil {
 		return llmrouter.UsageRemaining{}, fmt.Errorf("http.Do: %w", err)

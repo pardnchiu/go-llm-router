@@ -4,24 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	oauthCodex "github.com/pardnchiu/go-llm-router/core/oauth/codex"
 )
-
-func newHTTPClient() *http.Client {
-	base, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		base = &http.Transport{}
-	}
-	transport := base.Clone()
-	transport.ResponseHeaderTimeout = 15 * time.Second
-	return &http.Client{
-		Timeout:   10 * time.Minute,
-		Transport: transport,
-	}
-}
 
 type Agent struct {
 	httpClient *http.Client
@@ -37,7 +23,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 	}
 
 	return &Agent{
-		httpClient: newHTTPClient(),
+		httpClient: llmrouter.NewStreamHTTPClient(),
 		model:      config.Model,
 		token:      token,
 	}, nil

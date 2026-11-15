@@ -1,12 +1,19 @@
 package oauthCodex
 
+import "time"
+
 const (
-	tokenKey    = "CODEX_OAUTH_TOKEN"
-	clientID    = "app_EMoamEEZ73f0CkXaXp7hrann"
-	authURL     = "https://auth.openai.com/oauth/authorize"
-	tokenURL    = "https://auth.openai.com/oauth/token"
-	redirectURI = "http://localhost:1455/auth/callback"
-	scopes      = "openid email profile offline_access"
+	tokenKey          = "CODEX_OAUTH_TOKEN"
+	clientID          = "app_EMoamEEZ73f0CkXaXp7hrann"
+	endpoint          = "https://auth.openai.com"
+	authURL           = endpoint + "/oauth/authorize"
+	tokenURL          = endpoint + "/oauth/token"
+	redirectURI       = "http://localhost:1455/auth/callback"
+	scopes            = "openid email profile offline_access"
+	deviceUserCodeURL = endpoint + "/api/accounts/deviceauth/usercode"
+	deviceTokenURL    = endpoint + "/api/accounts/deviceauth/token"
+	deviceVerifyURL   = endpoint + "/codex/device"
+	deviceRedirectURI = endpoint + "/deviceauth/callback"
 )
 
 type oauthTokenResponse struct {
@@ -19,4 +26,10 @@ type oauthTokenResponse struct {
 	// * `error` from string to object (e.g. {"code":"...","message":"..."}).
 	Error     any `json:"error,omitempty"`
 	ErrorDesc any `json:"error_description,omitempty"`
+}
+
+type DeviceCode struct {
+	VerificationURI string
+	UserCode        string
+	ExpiresAt       time.Time
 }

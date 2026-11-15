@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
@@ -38,7 +37,7 @@ func New(config llmrouter.Config) (*Agent, error) {
 	}
 
 	return &Agent{
-		httpClient: &http.Client{Timeout: 10 * time.Minute},
+		httpClient: &http.Client{Timeout: llmrouter.TimeoutHTTPLong},
 		model:      config.Model,
 		baseURL:    baseURL,
 		apiKey:     config.APIKey,

@@ -3,7 +3,6 @@ package llmrouter
 import (
 	"net/http"
 	"strings"
-	"time"
 )
 
 func SupportTemperature(providerName, model string) bool {
@@ -37,5 +36,18 @@ func ResponsesAPI(providerName, model string) bool {
 }
 
 func NewHTTPClient() *http.Client {
-	return &http.Client{Timeout: 10 * time.Minute}
+	return &http.Client{Timeout: TimeoutHTTPLong}
+}
+
+func NewStreamHTTPClient() *http.Client {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		base = &http.Transport{}
+	}
+	transport := base.Clone()
+	transport.ResponseHeaderTimeout = TimeoutHTTPShort
+	return &http.Client{
+		Timeout:   TimeoutHTTPLong,
+		Transport: transport,
+	}
 }

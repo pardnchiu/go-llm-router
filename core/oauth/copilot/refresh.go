@@ -15,7 +15,7 @@ const (
 )
 
 func EnsureFreshSession(ctx context.Context, token *llmrouter.CopilotToken, refresh *llmrouter.CopilotRefreshToken) (*llmrouter.CopilotRefreshToken, error) {
-	if refresh != nil && time.Now().Unix() < refresh.ExpiresAt-60 {
+	if refresh != nil && time.Now().Unix() < refresh.ExpiresAt-int64(llmrouter.ExpirySafety.Seconds()) {
 		return refresh, nil
 	}
 
