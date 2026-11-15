@@ -21,7 +21,7 @@ func (a *Agent) headers() map[string]string {
 
 func (a *Agent) buildBody(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, fast bool) map[string]any {
 	effort, _ := a.effort(reasoning)
-	return xai.BuildBody(ctx, a.model, messages, tools, effort, fast)
+	return xai.BuildBody(ctx, a.model, messages, tools, effort, fast, xai.SupportsXSearch(a.model))
 }
 
 func (a *Agent) Send(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, mode llmrouter.Mode) (*llmrouter.Output, int, error) {
