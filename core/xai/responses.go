@@ -13,7 +13,7 @@ import (
 
 const ResponsesAPI = "https://api.x.ai/v1/responses"
 
-func BuildBody(ctx context.Context, model string, messages []llmrouter.Message, tools []llmrouter.Tool, effort string, fast bool) map[string]any {
+func BuildBody(ctx context.Context, model string, messages []llmrouter.Message, tools []llmrouter.Tool, effort string, fast, xSearch bool) map[string]any {
 	var instructions string
 	var nonSystem []llmrouter.Message
 	for _, m := range messages {
@@ -32,7 +32,7 @@ func BuildBody(ctx context.Context, model string, messages []llmrouter.Message, 
 	body := map[string]any{
 		"model":        model,
 		"input":        copilotResponse.ConvertInput(nonSystem),
-		"tools":        copilotResponse.ConvertTools(tools),
+		"tools":        buildTools(tools, xSearch),
 		"instructions": instructions,
 		"store":        false,
 		"stream":       true,
@@ -47,6 +47,23 @@ func BuildBody(ctx context.Context, model string, messages []llmrouter.Message, 
 		body["prompt_cache_key"] = session
 	}
 	return body
+}
+
+func buildTools(tools []llmrouter.Tool, xSearch bool) []any {
+	converted := copilotResponse.ConvertTools(tools)
+	result := make([]any, 0, len(converted)+1)
+	for _, t := range converted {
+		result = append(result, t)
+	}
+	if xSearch && len(converted) > 0 {
+		result = append(result, map[string]string{"type": "x_search"})
+	}
+	return result
+}
+
+func SupportsXSearch(model string) bool {
+	model = strings.ToLower(model)
+	return strings.HasPrefix(model, "grok-") && !strings.Contains(model, "imagine")
 }
 
 type sseEvent struct {
