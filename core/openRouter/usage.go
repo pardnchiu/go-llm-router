@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 
@@ -25,7 +24,7 @@ func Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaini
 		return llmrouter.UsageRemaining{}, fmt.Errorf("Usage: APIKey is required")
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	data, status, err := go_pkg_http.GET[creditsResponse](ctx, client, creditsAPI, map[string]string{
 		"Authorization": "Bearer " + config.APIKey,
 	})

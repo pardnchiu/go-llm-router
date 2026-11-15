@@ -22,6 +22,7 @@ const (
 
 var (
 	errAuthorizationPending = fmt.Errorf("authorization pending") // * pre declare error for ensuring padding wont cause login exit
+	errSlowDown             = fmt.Errorf("slow down")
 )
 
 type DeviceCode struct {
@@ -83,11 +84,18 @@ func LoginWithCallback(ctx context.Context, onCode func(*DeviceCode)) (*llmroute
 		onCode(&code)
 	}
 
-	interval := time.Duration(code.Interval) * time.Second
-	deadline := time.Now().Add(time.Duration(code.ExpiresIn) * time.Second)
+	interval := llmrouter.IntervalBackoff
+	if code.Interval > 0 {
+		interval = time.Duration(code.Interval) * time.Second
+	}
+	wait := llmrouter.TimeoutWait
+	if code.ExpiresIn > 0 {
+		wait = min(wait, time.Duration(code.ExpiresIn)*time.Second)
+	}
+	deadline := time.Now().Add(wait)
 
 	var token *llmrouter.CopilotToken
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
@@ -99,6 +107,10 @@ func LoginWithCallback(ctx context.Context, onCode func(*DeviceCode)) (*llmroute
 		if err != nil {
 			// * waiting for authorize
 			if errors.Is(err, errAuthorizationPending) {
+				continue
+			}
+			if errors.Is(err, errSlowDown) {
+				interval += llmrouter.IntervalBackoff
 				continue
 			}
 			return nil, err
@@ -139,6 +151,9 @@ func getAccessToken(ctx context.Context, client *http.Client, deviceCode string)
 
 	case "authorization_pending":
 		return nil, errAuthorizationPending
+
+	case "slow_down":
+		return nil, errSlowDown
 
 	default:
 		return nil, fmt.Errorf("accessToken.Error: %s", accessToken.Error)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	copilotResponse "github.com/pardnchiu/go-llm-router/core/copilot/response"
@@ -89,7 +88,7 @@ func (a *Agent) resolveEndpoints(ctx context.Context) []string {
 		return nil
 	}
 
-	lookupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	lookupCtx, cancel := context.WithTimeout(ctx, llmrouter.TimeoutHTTPShort)
 	defer cancel()
 
 	data, err := fetchModels(lookupCtx, a.httpClient, headers)

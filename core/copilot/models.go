@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
@@ -44,7 +43,7 @@ func ModelInfos(ctx context.Context, config llmrouter.Config, filter llmrouter.M
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	data, err := fetchModels(ctx, client, map[string]string{
 		"Authorization":  "Bearer " + config.APIKey,
 		"Editor-Version": "vscode/1.95.0",

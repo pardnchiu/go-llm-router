@@ -5,14 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 )
 
 const (
-	label      = "gemini"
-	idleWindow = 10 * time.Minute
+	label = "gemini"
 )
 
 func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, tools []llmrouter.Tool, reasoning llmrouter.Reasoning, _ llmrouter.Mode) (<-chan llmrouter.StreamEvent, error) {
@@ -22,7 +20,7 @@ func (a *Agent) SendStream(ctx context.Context, messages []llmrouter.Message, to
 	if err != nil {
 		return nil, err
 	}
-	llmrouter.SetIdleWindow(resp.Body, idleWindow)
+	llmrouter.SetIdleWindow(resp.Body, llmrouter.TimeoutWait)
 
 	events := make(chan llmrouter.StreamEvent)
 	go func() {

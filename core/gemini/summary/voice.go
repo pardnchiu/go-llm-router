@@ -54,7 +54,7 @@ Requirements:
 Complete final response:
 ` + text
 
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	resp, _, err := go_pkg_http.POST[data](ctx, nil, endpoint, map[string]string{"x-goog-api-key": apiKey}, map[string]any{

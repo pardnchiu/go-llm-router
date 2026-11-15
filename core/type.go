@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+const (
+	TimeoutWait      = 10 * time.Minute
+	TimeoutHTTPShort = 15 * time.Second
+	TimeoutHTTPLong  = 15 * time.Minute
+	IntervalBackoff  = 5 * time.Second
+	ExpiryToken      = time.Hour
+	ExpirySafety     = 60 * time.Second
+)
+
 type Agent interface {
 	Name() string
 	Send(ctx context.Context, messages []Message, toolDefs []Tool, reasoning Reasoning, mode Mode) (*Output, int, error)
@@ -169,7 +178,7 @@ type GrokToken struct {
 }
 
 func (t *GrokToken) Expired() bool {
-	return time.Now().After(t.ExpiresAt.Add(-60 * time.Second))
+	return time.Now().After(t.ExpiresAt.Add(-ExpirySafety))
 }
 
 type CodexToken struct {
@@ -181,7 +190,7 @@ type CodexToken struct {
 }
 
 func (t *CodexToken) Expired() bool {
-	return time.Now().After(t.ExpiresAt.Add(-60 * time.Second))
+	return time.Now().After(t.ExpiresAt.Add(-ExpirySafety))
 }
 
 type ToolCall struct {

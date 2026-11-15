@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
@@ -31,7 +30,7 @@ func Usage(ctx context.Context, config llmrouter.Config) (llmrouter.UsageRemaini
 		return llmrouter.UsageRemaining{}, fmt.Errorf("Usage: Token is required")
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	data, status, err := go_pkg_http.GET[userResponse](ctx, client, userAPI, map[string]string{
 		"Authorization":  "token " + token.AccessToken,
 		"Editor-Version": "vscode/1.96.2",

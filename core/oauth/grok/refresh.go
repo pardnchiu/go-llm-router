@@ -30,7 +30,7 @@ func refresh(ctx context.Context, token *llmrouter.GrokToken) (*llmrouter.GrokTo
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient().Do(req)
+	resp, err := llmrouter.NewStreamHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("httpClient.Do: %w", err)
 	}
@@ -46,7 +46,7 @@ func refresh(ctx context.Context, token *llmrouter.GrokToken) (*llmrouter.GrokTo
 
 	expiry := time.Now().Add(time.Duration(raw.ExpiresIn) * time.Second)
 	if raw.ExpiresIn == 0 {
-		expiry = time.Now().Add(3600 * time.Second)
+		expiry = time.Now().Add(llmrouter.ExpiryToken)
 	}
 
 	refreshToken := raw.RefreshToken

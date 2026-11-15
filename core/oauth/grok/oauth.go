@@ -4,25 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	"github.com/pardnchiu/go-pkg/filesystem/keychain"
 )
-
-func httpClient() *http.Client {
-	base, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		base = &http.Transport{}
-	}
-	transport := base.Clone()
-	transport.ResponseHeaderTimeout = 15 * time.Second
-	return &http.Client{
-		Timeout:   10 * time.Minute,
-		Transport: transport,
-	}
-}
 
 func Load() (*llmrouter.GrokToken, error) {
 	raw := keychain.Get(tokenKey)

@@ -11,14 +11,13 @@ import (
 	"slices"
 	"time"
 
+	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
 )
 
 const (
 	cacheAPI            = "https://generativelanguage.googleapis.com/v1beta/cachedContents"
 	cacheMinTokens      = 4096
-	cacheTTLSeconds     = 3600
-	cacheExpirySafety   = 60 * time.Second
 	cacheSweepThreshold = 64
 )
 
@@ -126,7 +125,7 @@ func (a *Agent) createCache(ctx context.Context, messages []Content, systemPromp
 	body := map[string]any{
 		"model":    "models/" + a.model,
 		"contents": messages,
-		"ttl":      fmt.Sprintf("%ds", cacheTTLSeconds),
+		"ttl":      fmt.Sprintf("%ds", int(llmrouter.ExpiryToken.Seconds())),
 	}
 	if systemPrompt != "" {
 		body["systemInstruction"] = map[string]any{
@@ -157,7 +156,7 @@ func (a *Agent) createCache(ctx context.Context, messages []Content, systemPromp
 		name:       result.Name,
 		prefixLen:  len(messages),
 		prefixHash: hashContents(messages),
-		expiresAt:  time.Now().Add(cacheTTLSeconds*time.Second - cacheExpirySafety),
+		expiresAt:  time.Now().Add(llmrouter.ExpiryToken - llmrouter.ExpirySafety),
 	}, nil
 }
 

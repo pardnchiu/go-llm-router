@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 
 	llmrouter "github.com/pardnchiu/go-llm-router/core"
 	go_pkg_http "github.com/pardnchiu/go-pkg/http"
@@ -33,7 +32,7 @@ func ModelInfos(ctx context.Context, config llmrouter.Config, filter llmrouter.M
 		return nil, fmt.Errorf("Models: APIKey is required")
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: llmrouter.TimeoutHTTPShort}
 	data, status, err := go_pkg_http.GET[llmrouter.GeminiModels](ctx, client, modelsAPI+"?key="+config.APIKey, nil)
 	if err != nil {
 		return nil, fmt.Errorf("github.com/pardnchiu/go-pkg/http: GET: %w", err)
