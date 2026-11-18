@@ -105,7 +105,7 @@ The adapters prefix every upstream error with this label, so a caller can branch
 | `New` | `func(config llmrouter.Config) (*Agent, error)` | Uses `Model` and `APIKey`; an empty `APIKey` returns `[Denied] typesafe.New: APIKey is required` |
 | `(*Agent).Name` | `func() string` | `typesafe@<model>` |
 | `(*Agent).Decide` | `DecisionAgent` | Calls `/v1/systemone` |
-| `Models` | `func(ctx context.Context, config llmrouter.Config) ([]string, error)` | Names from `GET /v1/models`, 10-second timeout; takes no `ModelFilter` |
+| `Models` | `func(ctx context.Context, config llmrouter.Config) ([]string, error)` | Names from `GET /v1/models`, 15-second timeout; takes no `ModelFilter` |
 
 ## Related
 

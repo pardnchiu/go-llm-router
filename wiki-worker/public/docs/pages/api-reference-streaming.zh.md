@@ -17,6 +17,7 @@
 | `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
 | `TruncateFrame` | `func(data string) string` |
 | `WatchIdle` | `func(body io.ReadCloser, label string) io.ReadCloser`；為 SSE body 加上停滯與重複輸出監控；`OpenStream`、`grok`、`grok-oauth`、`codex` 會套用 |
+| `SetIdleWindow` | `func(body io.Reader, probe time.Duration)`；替換受監控 body 的首次探測延遲並重設計時器；body 未受監控、已關閉或 `probe <= 0` 時不動作；Gemini 設為 `TimeoutWait` |
 | `TouchIdle` | `func(body io.Reader, deltas ...string)`；parser 對每個帶內容的 frame 呼叫，並把文字、推理或工具參數增量交給重複偵測；未受監控的 body 不做任何事 |
 | `DecodeFrame` | `func(body io.Reader, label, data string, v any) (bool, error)`；解析單一 frame，無法解析時回 `false, nil` 略過，連續第三個回 `[Upstream]` 錯誤；未受監控的 body 第一次失敗即回錯誤 |
 | 監控時序 | `StreamProbeInterval` 30 秒、`StreamRecheckInterval` 10 秒、`StreamMaxProbeFailures` 3 |

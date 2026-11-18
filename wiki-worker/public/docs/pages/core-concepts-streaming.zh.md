@@ -64,6 +64,8 @@ const (
 
 三種錯誤都包裝 `context.DeadlineExceeded`，呼叫端可用 `errors.Is(err, context.DeadlineExceeded)` 比照一般逾時重試。只有 parser 正卡在讀取 body 時探測才算失敗，因此等待慢速 consumer 的時間不會觸發；SSE keep-alive comment（以 `:` 開頭的行）也會維持串流存活。
 
+Gemini 推理時可能數分鐘不輸出任何內容，因此其串流以 `llmrouter.SetIdleWindow` 設為 `llmrouter.TimeoutWait`：首次探測在 10 分鐘後，持續無資料 10 分 20 秒才結束串流。斷線仍能更早偵測：Gemini client 在 30 秒沒有 frame 時送出 HTTP/2 ping，20 秒內沒收到回應即中斷連線。
+
 無法解析的 frame 會被略過，連續三個才以 `[Upstream] <label> stream decode: 3 consecutive frames` 結束串流。
 
 ## 相關頁面

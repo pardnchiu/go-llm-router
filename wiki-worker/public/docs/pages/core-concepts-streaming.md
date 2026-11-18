@@ -64,6 +64,8 @@ Every SSE response is watched while it streams. A probe runs 30 seconds after th
 
 All three wrap `context.DeadlineExceeded`, so `errors.Is(err, context.DeadlineExceeded)` lets a caller retry them like any other timeout. A probe only counts as failed while the parser is blocked reading the body, so time spent waiting on a slow consumer never trips it, and SSE keep-alive comments (lines starting with `:`) keep the stream alive.
 
+Gemini can stay silent for minutes while it reasons, so its stream calls `llmrouter.SetIdleWindow` with `llmrouter.TimeoutWait`: the first probe runs after 10 minutes and silence ends the stream after 10 minutes 20 seconds. A dead connection is still caught sooner, because the Gemini client sends an HTTP/2 ping after 30 seconds without frames and drops the connection when no ack arrives within 20 seconds.
+
 Undecodable frames are skipped; three in a row end the stream with `[Upstream] <label> stream decode: 3 consecutive frames`.
 
 ## Related

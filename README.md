@@ -39,6 +39,7 @@ Last updated: 2026-11-05
 - **Reasoning Level Normalization** — Six levels from `none` to `max` map onto Claude thinking, Gemini budgets, and OpenAI effort, clamped to each model's range.
 - **Usage Field Absorption** — `prompt_tokens` / `input_tokens` and every cache variant fold into a single Input / Output / Cache shape.
 - **Multimodal and OAuth Extensions** — Built-in Copilot / Codex / Grok OAuth flows, plus image generation, speech-to-text, and text-to-speech agents.
+- **Live X Search for Grok** — Grok requests that carry function tools also get xAI's server-side `x_search`, so the model can read current X posts, users, and threads before it answers.
 - **Typed Decisions** — Ask yes/no, choice, and score questions about a piece of text and get probability-weighted answers from TypeSafe or OpenRouter through one `DecisionAgent`.
 
 ## Architecture
