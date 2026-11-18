@@ -136,6 +136,36 @@
   },
   {
     "package": "core",
+    "name": "TimeoutWait",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "TimeoutHTTPShort",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "TimeoutHTTPLong",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "IntervalBackoff",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ExpiryToken",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
+    "name": "ExpirySafety",
+    "kind": "const-or-var"
+  },
+  {
+    "package": "core",
     "name": "ReasoningDefault",
     "kind": "const"
   },
@@ -206,6 +236,11 @@
   },
   {
     "package": "core",
+    "name": "NewStreamHTTPClient",
+    "kind": "func"
+  },
+  {
+    "package": "core",
     "name": "OpenStream",
     "kind": "func"
   },
@@ -242,6 +277,11 @@
   {
     "package": "core",
     "name": "SessionUUID",
+    "kind": "func"
+  },
+  {
+    "package": "core",
+    "name": "SetIdleWindow",
     "kind": "func"
   },
   {
@@ -941,8 +981,23 @@
   },
   {
     "package": "core/oauth/codex",
+    "name": "Login",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
     "name": "LoginWithCallback",
     "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "LoginWithDeviceCode",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/codex",
+    "name": "DeviceCode",
+    "kind": "type"
   },
   {
     "package": "core/oauth/copilot",
@@ -1002,6 +1057,11 @@
   {
     "package": "core/oauth/grok",
     "name": "LoginWithCallback",
+    "kind": "func"
+  },
+  {
+    "package": "core/oauth/grok",
+    "name": "Submit",
     "kind": "func"
   },
   {
@@ -1132,6 +1192,11 @@
   {
     "package": "core/xai",
     "name": "ParseSSEStream",
+    "kind": "func"
+  },
+  {
+    "package": "core/xai",
+    "name": "SupportsXSearch",
     "kind": "func"
   }
 ]

@@ -137,7 +137,7 @@ for evt := range events {
 }
 ```
 
-Every SSE response is watched while it streams. The stream ends with a `[Timeout]` error wrapping `context.DeadlineExceeded` when three consecutive probes (first at 30 seconds, then every 10 seconds) see no data, or data without any text, reasoning, or tool-call content, or when the latest 16 KiB of output collapses into degenerate repetition. Time spent waiting on a slow consumer is not counted, and SSE keep-alive comments keep the stream alive. Isolated undecodable frames are skipped; three in a row end the stream with an `[Upstream]` error.
+Every SSE response is watched while it streams. The stream ends with a `[Timeout]` error wrapping `context.DeadlineExceeded` when three consecutive probes (first at 30 seconds, then every 10 seconds) see no data, or data without any text, reasoning, or tool-call content, or when the latest 16 KiB of output collapses into degenerate repetition. Time spent waiting on a slow consumer is not counted, and SSE keep-alive comments keep the stream alive. Isolated undecodable frames are skipped; three in a row end the stream with an `[Upstream]` error. Gemini can reason silently for minutes, so it moves its first probe to `TimeoutWait` (10 minutes) and detects dead connections with HTTP/2 pings instead (sent after 30 seconds without a frame, dropped after 20 seconds without a reply).
 
 ### Reasoning levels and fast mode
 
@@ -185,6 +185,8 @@ for _, call := range out.Choices[0].Message.ToolCalls {
 ```
 
 Return tool results with `Role: "tool"` plus `ToolCallID`. Gemini's `ThoughtSignature` must be echoed back verbatim or the next turn is rejected.
+
+Both `grok` and `grok-oauth` append xAI's server-side `x_search` tool whenever the request already declares function tools and the model is a `grok-*` chat model (`xai.SupportsXSearch`; `imagine` models excluded); requests without tools send none. `x_search` runs on xAI's side: Grok searches X posts, users, and threads within the same request and answers from the results; search steps are dropped from `Output`, and xAI bills each search separately (one question can trigger many). There is no option to turn it off other than sending no tools.
 
 ### Multimodal input
 
@@ -491,6 +493,7 @@ Flag support differs per provider; an unsupported flag is ignored rather than re
 | `StreamChat` / `StreamResponses` | Parse Chat Completions and Responses API SSE into an event channel |
 | `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
 | `WatchIdle` | `func(body io.ReadCloser, label string) io.ReadCloser`; wraps an SSE body with the idle and repetition watchdog (`OpenStream` applies it) |
+| `SetIdleWindow` | `func(body io.Reader, probe time.Duration)`; replaces the first-probe delay of a watched body; Gemini sets `TimeoutWait` |
 | `TouchIdle` | `func(body io.Reader, deltas ...string)`; parsers mark a frame as content and feed its text to repetition detection |
 | `DecodeFrame` | `func(body io.Reader, label, data string, v any) (bool, error)`; skips an undecodable frame, errors on the third in a row (or the first on an unwatched body) |
 | `StreamProbeInterval` / `StreamRecheckInterval` / `StreamMaxProbeFailures` | 30 s / 10 s / 3 |
@@ -609,7 +612,10 @@ type DecisionResult struct {
 | `HasToken` | `func() bool` | Reports whether a login exists |
 | `ClearToken` | `func() error` | Removes the token, legacy key included |
 | `LoginWithCallback` | `func(ctx, onCode/onURL) (*llmrouter.XxxToken, error)` | Device flow for Copilot (yields `*DeviceCode`), PKCE authorization URL for Codex and Grok |
-| `EnsureFresh` / `EnsureFreshSession` | `func(ctx, token[, refresh]) (...)` | Refreshes 60 seconds before expiry; Copilot additionally exchanges a short-lived session token |
+| `Login` | `func(ctx, onURL, onCode) (*llmrouter.CodexToken, error)` | Codex only: runs the browser callback and device code logins at once and returns the first token |
+| `LoginWithDeviceCode` | `func(ctx, onCode func(*DeviceCode)) (*llmrouter.CodexToken, error)` | Codex only: device code login without a local browser, polling up to `TimeoutWait` |
+| `Submit` | `func(input string) error` | Grok only: completes a pending `LoginWithCallback` with a pasted authorization code or full callback URL |
+| `EnsureFresh` / `EnsureFreshSession` | `func(ctx, token[, refresh]) (...)` | Refreshes `ExpirySafety` (60 seconds) before expiry; Copilot additionally exchanges a short-lived session token |
 
 ### Usage queries
 
@@ -637,7 +643,10 @@ Every package exposes `Usage(ctx context.Context, config llmrouter.Config) (llmr
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `NewHTTPClient` | `func() *http.Client` | 10-minute timeout; `codex` and `grok-oauth` build their own client with a 15-second response-header timeout |
+| `NewHTTPClient` | `func() *http.Client` | `TimeoutHTTPLong` (15-minute) timeout |
+| `NewStreamHTTPClient` | `func() *http.Client` | Adds a `TimeoutHTTPShort` (15-second) response-header timeout; used by `codex`, `grok-oauth`, and the Codex / Grok OAuth requests |
+| `TimeoutHTTPShort` / `TimeoutHTTPLong` / `TimeoutWait` | `time.Duration` | 15 s listing, usage, and header timeout / 15 min request timeout / 10 min device code wait and Gemini idle window |
+| `IntervalBackoff` / `ExpiryToken` / `ExpirySafety` | `time.Duration` | 5 s device code poll step / 1 h default token lifetime and Gemini cache TTL / 60 s refresh margin |
 | `SupportTemperature` | `func(providerName, model string) bool` | Claude, the `gpt-5` family, `deepseek-reasoner`, and Gemini previews reject `temperature` |
 | `ResponsesAPI` | `func(providerName, model string) bool` | Chooses Responses over Chat Completions for OpenAI and Copilot |
 | `WithSessionID` | `func(ctx context.Context, id string) context.Context` | Attaches a session ID for prompt caching; blank IDs are ignored |

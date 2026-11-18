@@ -96,9 +96,9 @@ Packages without a prefix that several adapters import.
 | Package | Used by | Exports |
 |---|---|---|
 | `core/copilot/response` (package `copilotResponse`) | `openai`, `codex`, `copilot`, `core/xai` | `ConvertInput`, `ConvertTools`, `ConvertOutput`; Responses API wire types `Output`, `ToolCall` |
-| `core/xai` | `grok`, `grok-oauth` | `ResponsesAPI` (`https://api.x.ai/v1/responses`), `BuildBody(ctx, model, messages, tools, effort string, fast bool) map[string]any`, `ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error)` |
+| `core/xai` | `grok`, `grok-oauth` | `ResponsesAPI` (`https://api.x.ai/v1/responses`), `BuildBody(ctx, model, messages, tools, effort string, fast, xSearch bool) map[string]any`, `SupportsXSearch(model string) bool` (true for `grok-*` models except `imagine`), `ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error)` |
 
-`xai.BuildBody` always requests a stream, so the non-streaming `Send` of both Grok adapters reads the SSE body with `xai.ParseSSEStream` and returns one assembled `Output`.
+`xai.BuildBody` always requests a stream, so the non-streaming `Send` of both Grok adapters reads the SSE body with `xai.ParseSSEStream` and returns one assembled `Output`. With `xSearch` set and at least one function tool, `BuildBody` appends `{"type":"x_search"}`, and both Grok adapters pass `SupportsXSearch(model)`.
 
 ## Related
 

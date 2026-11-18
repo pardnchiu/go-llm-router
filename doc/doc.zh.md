@@ -137,7 +137,7 @@ for evt := range events {
 }
 ```
 
-每個 SSE 回應在串流期間都受監控。連續三次探測（第一次在 30 秒，之後每 10 秒）都沒有資料，或有資料卻沒有任何文字、推理或工具呼叫內容，或最新 16 KiB 的輸出陷入重複循環時，串流以包裝 `context.DeadlineExceeded` 的 `[Timeout]` 錯誤結束。等待慢速 consumer 的時間不計入，SSE keep-alive comment 會維持串流存活。零星無法解析的 frame 會被略過，連續三個才以 `[Upstream]` 錯誤結束串流。
+每個 SSE 回應在串流期間都受監控。連續三次探測（第一次在 30 秒，之後每 10 秒）都沒有資料，或有資料卻沒有任何文字、推理或工具呼叫內容，或最新 16 KiB 的輸出陷入重複循環時，串流以包裝 `context.DeadlineExceeded` 的 `[Timeout]` 錯誤結束。等待慢速 consumer 的時間不計入，SSE keep-alive comment 會維持串流存活。零星無法解析的 frame 會被略過，連續三個才以 `[Upstream]` 錯誤結束串流。Gemini 推理時可能數分鐘無輸出，因此首次探測延後為 `TimeoutWait`（10 分鐘），改以 HTTP/2 ping 偵測斷線（30 秒無 frame 即送出，20 秒無回應即中斷）。
 
 ### 推理等級與 fast 模式
 
@@ -185,6 +185,8 @@ for _, call := range out.Choices[0].Message.ToolCalls {
 ```
 
 工具結果以 `Role: "tool"` + `ToolCallID` 回傳；Gemini 的 `ThoughtSignature` 需原樣帶回，否則後續回合會被拒絕。
+
+`grok` 與 `grok-oauth` 只要請求已宣告 function 工具，且模型為 `grok-*` 對話模型（`xai.SupportsXSearch`，排除 `imagine` 模型），就會另外附上 xAI 伺服器端的 `x_search` 工具；沒帶工具的請求不會附加。`x_search` 在 xAI 端執行：Grok 於同一次請求內搜尋 X 的貼文、使用者與討論串，並依結果回答；搜尋步驟不會出現在 `Output`，且 xAI 對每次搜尋另外計費（一個問題可能觸發多次）。除了不帶工具外，目前沒有關閉選項。
 
 ### 多模態輸入
 
@@ -491,6 +493,7 @@ import 路徑為 `github.com/pardnchiu/go-llm-router/core`，該目錄宣告的 
 | `StreamChat` / `StreamResponses` | 分別解析 Chat Completions 與 Responses API 的 SSE，回傳事件 channel |
 | `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
 | `WatchIdle` | `func(body io.ReadCloser, label string) io.ReadCloser`；為 SSE body 掛上閒置與重複輸出監控（`OpenStream` 已套用） |
+| `SetIdleWindow` | `func(body io.Reader, probe time.Duration)`；替換受監控 body 的首次探測延遲；Gemini 設為 `TimeoutWait` |
 | `TouchIdle` | `func(body io.Reader, deltas ...string)`；parser 標記該 frame 有內容，並把文字送進重複偵測 |
 | `DecodeFrame` | `func(body io.Reader, label, data string, v any) (bool, error)`；略過無法解析的 frame，連續第三個才回錯（未受監控的 body 第一個就回錯） |
 | `StreamProbeInterval` / `StreamRecheckInterval` / `StreamMaxProbeFailures` | 30 秒 / 10 秒 / 3 次 |
@@ -609,7 +612,10 @@ type DecisionResult struct {
 | `HasToken` | `func() bool` | 判斷是否已登入 |
 | `ClearToken` | `func() error` | 移除權杖，含舊鍵 |
 | `LoginWithCallback` | `func(ctx, onCode/onURL) (*llmrouter.XxxToken, error)` | Copilot 為 device flow（回傳 `*DeviceCode`），Codex 與 Grok 為 PKCE 授權 URL |
-| `EnsureFresh` / `EnsureFreshSession` | `func(ctx, token[, refresh]) (...)` | 過期前 60 秒換新；Copilot 另外換取短期 session token |
+| `Login` | `func(ctx, onURL, onCode) (*llmrouter.CodexToken, error)` | 僅 Codex：同時跑瀏覽器 callback 與 device code 登入，回傳先取得的權杖 |
+| `LoginWithDeviceCode` | `func(ctx, onCode func(*DeviceCode)) (*llmrouter.CodexToken, error)` | 僅 Codex：不需本機瀏覽器的 device code 登入，輪詢上限 `TimeoutWait` |
+| `Submit` | `func(input string) error` | 僅 Grok：以貼上的授權碼或完整 callback URL 完成進行中的 `LoginWithCallback` |
+| `EnsureFresh` / `EnsureFreshSession` | `func(ctx, token[, refresh]) (...)` | 過期前 `ExpirySafety`（60 秒）換新；Copilot 另外換取短期 session token |
 
 ### 用量查詢
 
@@ -637,7 +643,10 @@ type UsageRemaining struct {
 
 | 符號 | 簽名 | 說明 |
 |---|---|---|
-| `NewHTTPClient` | `func() *http.Client` | 10 分鐘 timeout；`codex` 與 `grok-oauth` 另外自建 15 秒 response header timeout 的 client |
+| `NewHTTPClient` | `func() *http.Client` | `TimeoutHTTPLong`（15 分鐘）timeout |
+| `NewStreamHTTPClient` | `func() *http.Client` | 另加 `TimeoutHTTPShort`（15 秒）response header timeout；`codex`、`grok-oauth` 與 Codex／Grok OAuth 請求使用 |
+| `TimeoutHTTPShort` / `TimeoutHTTPLong` / `TimeoutWait` | `time.Duration` | 15 秒清單、用量與 header timeout／15 分鐘請求 timeout／10 分鐘 device code 等待與 Gemini 閒置窗口 |
+| `IntervalBackoff` / `ExpiryToken` / `ExpirySafety` | `time.Duration` | 5 秒 device code 輪詢步進／1 小時預設權杖效期與 Gemini 快取 TTL／60 秒換新緩衝 |
 | `SupportTemperature` | `func(providerName, model string) bool` | Claude、`gpt-5` 系列、`deepseek-reasoner`、Gemini preview 皆不接受 `temperature` |
 | `ResponsesAPI` | `func(providerName, model string) bool` | 決定 OpenAI / Copilot 走 Responses 還是 Chat Completions |
 | `WithSessionID` | `func(ctx context.Context, id string) context.Context` | 掛上 session ID 供前綴快取使用；空白 ID 忽略 |

@@ -136,7 +136,7 @@ graph TB
 | OpenAI 相容 | `openai`、`deepseek`、`mistral`、`nvidia`、`openRouter`、`ollamaCloud`、`cloudflare`、`compat` | Chat Completions；OpenAI 新世代模型改走 Responses |
 | Anthropic | `claude` | Messages API，thinking 預算換算 |
 | Google | `gemini` | `:generateContent`，工具以 `parametersJsonSchema` 傳送原始 JSON Schema，並使用 `cachedContents` |
-| xAI | `grok`、`grokOauth` | Responses API（共用 `core/xai` 的 body 組裝與 SSE 解析）+ 圖片端點 |
+| xAI | `grok`、`grokOauth` | Responses API（共用 `core/xai` 的 body 組裝與 SSE 解析；帶 function 工具時兩者皆附加伺服器端 `x_search` 工具）+ 圖片端點 |
 | TypeSafe | `typesafe` | 僅決策的 `/v1/systemone`，沒有對話路徑 |
 | OAuth 代理 | `copilot`、`openaiCodex` | 廠商內部 Responses 端點，需 session 權杖 |
 | Claude Code CLI | `claudeCode` | 不走 HTTP：以 stream-json 驅動本機 `claude -p` 行程，工具改用文字 `<tool_call>` 協定，每個 session 保留一個行程（閒置 15 分鐘回收） |
@@ -170,10 +170,12 @@ graph LR
 ```mermaid
 graph TB
     subgraph oauth
-        Login[LoginWithCallback<br/>device flow / PKCE]
+        Login[LoginWithCallback / Login<br/>device flow / PKCE / device code]
+        Submit[Submit<br/>pasted code, Grok]
         Store[Load / HasToken / ClearToken]
         Fresh[EnsureFresh / EnsureFreshSession]
     end
+    Submit --> Login
     Login --> Keychain[(keychain)]
     Store --> Keychain
     Fresh --> Keychain

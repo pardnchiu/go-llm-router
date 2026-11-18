@@ -96,9 +96,9 @@ type DecisionAgent interface {
 | 套件 | 使用者 | 匯出 |
 |---|---|---|
 | `core/copilot/response`（package `copilotResponse`） | `openai`、`codex`、`copilot`、`core/xai` | `ConvertInput`、`ConvertTools`、`ConvertOutput`；Responses API 傳輸型別 `Output`、`ToolCall` |
-| `core/xai` | `grok`、`grok-oauth` | `ResponsesAPI`（`https://api.x.ai/v1/responses`）、`BuildBody(ctx, model, messages, tools, effort string, fast bool) map[string]any`、`ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error)` |
+| `core/xai` | `grok`、`grok-oauth` | `ResponsesAPI`（`https://api.x.ai/v1/responses`）、`BuildBody(ctx, model, messages, tools, effort string, fast, xSearch bool) map[string]any`、`SupportsXSearch(model string) bool`（`imagine` 以外的 `grok-*` 模型為 true）、`ParseSSEStream(label string, resp *http.Response) (*llmrouter.Output, error)` |
 
-`xai.BuildBody` 一律要求串流，因此兩個 Grok 轉接層的非串流 `Send` 也是以 `xai.ParseSSEStream` 讀取 SSE，再組成單一 `Output` 回傳。
+`xai.BuildBody` 一律要求串流，因此兩個 Grok 轉接層的非串流 `Send` 也是以 `xai.ParseSSEStream` 讀取 SSE，再組成單一 `Output` 回傳。`xSearch` 為 true 且至少有一個 function 工具時，`BuildBody` 會附加 `{"type":"x_search"}`；兩個 Grok 轉接層皆傳入 `SupportsXSearch(model)`。
 
 ## 相關頁面
 

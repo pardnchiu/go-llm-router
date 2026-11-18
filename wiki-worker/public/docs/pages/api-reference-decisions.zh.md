@@ -105,7 +105,7 @@ adapter 在每個上游錯誤前加上這個標示，呼叫端可依類別分流
 | `New` | `func(config llmrouter.Config) (*Agent, error)` | 使用 `Model` 與 `APIKey`；`APIKey` 為空時回傳 `[Denied] typesafe.New: APIKey is required` |
 | `(*Agent).Name` | `func() string` | `typesafe@<model>` |
 | `(*Agent).Decide` | `DecisionAgent` | 呼叫 `/v1/systemone` |
-| `Models` | `func(ctx context.Context, config llmrouter.Config) ([]string, error)` | `GET /v1/models` 的模型名稱，逾時 10 秒；不接受 `ModelFilter` |
+| `Models` | `func(ctx context.Context, config llmrouter.Config) ([]string, error)` | `GET /v1/models` 的模型名稱，逾時 15 秒；不接受 `ModelFilter` |
 
 ## 相關頁面
 

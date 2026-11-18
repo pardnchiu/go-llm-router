@@ -46,7 +46,7 @@ Among other tools that call many LLM APIs, LiteLLM, Bifrost, and GoModel are pos
 | Anthropic | `claude` | Messages API; `budget_tokens` thinking on 4.5 / 4.1 models, adaptive thinking plus `output_config.effort` on newer ones |
 | Google | `gemini` | `:generateContent` with raw JSON Schema tools (`parametersJsonSchema`) and `cachedContents` prefix caching |
 | xAI | `grok`, `grokOauth` | Responses API built by `core/xai`, plus the image endpoints |
-| OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal endpoints requiring a session token: `copilot` picks Chat Completions or Responses from the model's `supported_endpoints`, `openaiCodex` always uses the ChatGPT backend Responses endpoint |
+| OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal endpoints requiring a session token: `copilot` uses Responses whenever the model's `supported_endpoints` lists `/responses`, Chat Completions when only `/chat/completions` is listed, and `ResponsesAPI` when neither is, `openaiCodex` always uses the ChatGPT backend Responses endpoint |
 | Local CLI | `claudeCode` | `claude -p` stream-JSON over stdin/stdout, one process per session, text-protocol tool calls |
 
 ## Cross-cutting principles
@@ -57,7 +57,7 @@ Among other tools that call many LLM APIs, LiteLLM, Bifrost, and GoModel are pos
 | Capabilities are interfaces | Streaming, reasoning limits, image, STT, and TTS are optional interfaces rather than flags or config fields |
 | Errors carry status | `Send` returns the upstream HTTP status; stream failures wrap into `*llmrouter.StreamError` keeping `Provider` / `Code` / `Body` |
 | Read caps live in the contract layer | 64 MiB non-streamed audio body, 8 KiB error body, 512-byte error frame, 64 KiB JSON body, all defined once in `core` |
-| Shared HTTP client | `llmrouter.NewHTTPClient` gives a 10-minute timeout; `codex` and `grok-oauth` build their own client with a 15-second response-header timeout |
+| Shared HTTP client and timing | `llmrouter.NewHTTPClient` gives a 15-minute timeout; `NewStreamHTTPClient` adds a 15-second response-header timeout for `codex`, `grok-oauth`, and OAuth requests; timeouts, poll backoff, and expiry margins are `core` constants shared by every adapter |
 
 ## Further reading
 

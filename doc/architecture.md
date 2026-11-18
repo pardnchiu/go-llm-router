@@ -136,7 +136,7 @@ graph TB
 | OpenAI-compatible | `openai`, `deepseek`, `mistral`, `nvidia`, `openRouter`, `ollamaCloud`, `cloudflare`, `compat` | Chat Completions; newer OpenAI generations switch to Responses |
 | Anthropic | `claude` | Messages API with thinking-budget conversion |
 | Google | `gemini` | `:generateContent` with raw JSON Schema tools (`parametersJsonSchema`) and `cachedContents` |
-| xAI | `grok`, `grokOauth` | Responses API via the shared `core/xai` body builder and SSE parser, plus the image endpoints |
+| xAI | `grok`, `grokOauth` | Responses API via the shared `core/xai` body builder and SSE parser (both add the server-side `x_search` tool when function tools are present), plus the image endpoints |
 | TypeSafe | `typesafe` | Decision-only `/v1/systemone`; no chat path |
 | OAuth proxies | `copilot`, `openaiCodex` | Vendor-internal Responses endpoints requiring a session token |
 | Claude Code CLI | `claudeCode` | No HTTP: drives a local `claude -p` process over stream-json, renders tools as a text `<tool_call>` protocol, and keeps one process per session (idle ones reaped after 15 minutes) |
@@ -170,10 +170,12 @@ All three OAuth providers share one flow skeleton and store tokens in the keycha
 ```mermaid
 graph TB
     subgraph oauth
-        Login[LoginWithCallback<br/>device flow / PKCE]
+        Login[LoginWithCallback / Login<br/>device flow / PKCE / device code]
+        Submit[Submit<br/>pasted code, Grok]
         Store[Load / HasToken / ClearToken]
         Fresh[EnsureFresh / EnsureFreshSession]
     end
+    Submit --> Login
     Login --> Keychain[(keychain)]
     Store --> Keychain
     Fresh --> Keychain

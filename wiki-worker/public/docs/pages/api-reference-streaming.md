@@ -17,6 +17,7 @@ Stream event types, stream errors, SSE helpers, and read-cap constants.
 | `ScanSSE` | `func(reader *bufio.Reader, handle func(event, data string) bool) error` |
 | `TruncateFrame` | `func(data string) string` |
 | `WatchIdle` | `func(body io.ReadCloser, label string) io.ReadCloser`; wraps an SSE body with the idle and repetition watchdog; `OpenStream`, `grok`, `grok-oauth`, and `codex` apply it |
+| `SetIdleWindow` | `func(body io.Reader, probe time.Duration)`; replaces the first-probe delay and resets the timer on a watched body; no-op on an unwatched body, a closed body, or `probe <= 0`; Gemini sets `TimeoutWait` |
 | `TouchIdle` | `func(body io.Reader, deltas ...string)`; a parser calls it for each frame that carried content and passes the text, reasoning, or tool-argument deltas to repetition detection; no-op on an unwatched body |
 | `DecodeFrame` | `func(body io.Reader, label, data string, v any) (bool, error)`; unmarshals one frame, returns `false, nil` to skip an undecodable frame and an `[Upstream]` error on the third in a row; on an unwatched body the first failure is an error |
 | Watchdog timing | `StreamProbeInterval` 30 s, `StreamRecheckInterval` 10 s, `StreamMaxProbeFailures` 3 |

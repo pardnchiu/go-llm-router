@@ -46,7 +46,7 @@ graph TB
 | Anthropic | `claude` | Messages API；4.5／4.1 模型用 `budget_tokens` thinking，較新模型用 adaptive thinking 加 `output_config.effort` |
 | Google | `gemini` | `:generateContent`，工具以 `parametersJsonSchema` 傳送原始 JSON Schema，並使用 `cachedContents` 前綴快取 |
 | xAI | `grok`、`grokOauth` | 由 `core/xai` 組出的 Responses API + 圖片端點 |
-| OAuth 代理 | `copilot`、`openaiCodex` | 廠商內部端點，需 session 權杖：`copilot` 依模型的 `supported_endpoints` 選 Chat Completions 或 Responses，`openaiCodex` 一律走 ChatGPT 後端的 Responses 端點 |
+| OAuth 代理 | `copilot`、`openaiCodex` | 廠商內部端點，需 session 權杖：`copilot` 在模型的 `supported_endpoints` 含 `/responses` 時一律走 Responses、只列 `/chat/completions` 時走 Chat Completions、兩者皆無時由 `ResponsesAPI` 判斷，`openaiCodex` 一律走 ChatGPT 後端的 Responses 端點 |
 | 本機 CLI | `claudeCode` | 以 stdin/stdout 與 `claude -p` 交換 stream-JSON，每個 session 一個程序，工具呼叫走文字協定 |
 
 ## 跨切原則
@@ -57,7 +57,7 @@ graph TB
 | 能力以介面表達 | 串流、推理上下限、圖片、STT、TTS 皆為選用介面，不用旗標或設定欄位表示 |
 | 錯誤帶狀態碼 | `Send` 回傳上游 HTTP 狀態；串流錯誤包成 `*llmrouter.StreamError` 保留 `Provider` / `Code` / `Body` |
 | 讀取上限固定在契約層 | 非串流音訊 body 64 MiB、錯誤 body 8 KiB、錯誤 frame 512 bytes、JSON body 64 KiB，由 `core` 統一定義 |
-| HTTP client 共用 | `llmrouter.NewHTTPClient` 提供 10 分鐘 timeout；`codex` 與 `grok-oauth` 另建帶 15 秒 response header timeout 的 client |
+| HTTP client 與時間值共用 | `llmrouter.NewHTTPClient` 提供 15 分鐘 timeout；`NewStreamHTTPClient` 另加 15 秒 response header timeout，供 `codex`、`grok-oauth` 與 OAuth 請求使用；timeout、輪詢 backoff、到期緩衝皆為 `core` 常數，所有轉接層共用 |
 
 ## 延伸閱讀
 
