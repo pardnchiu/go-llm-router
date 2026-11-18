@@ -110,15 +110,11 @@ func (a *Agent) resolveEndpoints(ctx context.Context) []string {
 
 func (a *Agent) useResponses(ctx context.Context) bool {
 	endpoints := a.resolveEndpoints(ctx)
-	if len(endpoints) > 0 {
-		hasChat := slices.Contains(endpoints, "/chat/completions")
-		hasResponses := slices.Contains(endpoints, "/responses")
-		if hasResponses && !hasChat {
-			return true
-		}
-		if hasChat && !hasResponses {
-			return false
-		}
+	if slices.Contains(endpoints, "/responses") {
+		return true
+	}
+	if slices.Contains(endpoints, "/chat/completions") {
+		return false
 	}
 	return llmrouter.ResponsesAPI("copilot", a.model)
 }
